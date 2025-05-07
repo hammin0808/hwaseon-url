@@ -254,7 +254,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // 다중 URL 단축 버튼
     const multipleBtn = document.querySelector('.multiple-btn');
     addHoverEffect(multipleBtn);
-ㅈ});
+});
 
 // 대시보드 접근 비밀번호 보호
 const dashboardBtn = document.querySelector('.dashboard-btn');
