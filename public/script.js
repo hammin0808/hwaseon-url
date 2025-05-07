@@ -213,8 +213,41 @@ howNotification('URL이 복사되었습니다');
 
 // 대시보드 버튼 클릭 이벤트
 
-document.querySelector('.dashboard-btn').addEventListener('click', function() {
+document.querySelector('.dashboard-btn').addEventListener('click', function(e) {
+    e.preventDefault();
+    showPasswordModal();
+});
+
+function showPasswordModal() {
+  const modal = document.getElementById('passwordModal');
+  modal.classList.add('show');
+  modal.style.display = 'flex';
+  document.getElementById('passwordInput').value = '';
+  document.getElementById('passwordInput').focus();
+}
+
+function closePasswordModal() {
+  const modal = document.getElementById('passwordModal');
+  modal.classList.remove('show');
+  modal.style.display = 'none';
+}
+
+function verifyPassword() {
+  const password = document.getElementById('passwordInput').value;
+  if (password === 'hwaseon@00') {
+    closePasswordModal();
     window.location.href = '/dashboard';
+  } else {
+    alert('비밀번호가 일치하지 않습니다.');
+    document.getElementById('passwordInput').value = '';
+    document.getElementById('passwordInput').focus();
+  }
+}
+
+document.getElementById('passwordInput').addEventListener('keypress', function(e) {
+  if (e.key === 'Enter') {
+    verifyPassword();
+  }
 });
 
 // 다중 URL 단축 버튼 클릭 이벤트
@@ -254,43 +287,4 @@ document.addEventListener('DOMContentLoaded', function() {
     // 다중 URL 단축 버튼
     const multipleBtn = document.querySelector('.multiple-btn');
     addHoverEffect(multipleBtn);
-});
-
-// 대시보드 접근 비밀번호 보호
-const dashboardBtn = document.querySelector('.dashboard-btn');
-dashboardBtn.addEventListener('click', function(e) {
-  e.preventDefault();
-  showPasswordModal();
-});
-
-function showPasswordModal() {
-  const modal = document.getElementById('passwordModal');
-  modal.classList.add('show');
-  modal.style.display = 'flex';
-  document.getElementById('passwordInput').value = '';
-  document.getElementById('passwordInput').focus();
-}
-
-function closePasswordModal() {
-  const modal = document.getElementById('passwordModal');
-  modal.classList.remove('show');
-  modal.style.display = 'none';
-}
-
-function verifyPassword() {
-  const password = document.getElementById('passwordInput').value;
-  if (password === 'hwaseon@00') {
-    closePasswordModal();
-    window.location.href = '/dashboard';
-  } else {
-    alert('비밀번호가 일치하지 않습니다.');
-    document.getElementById('passwordInput').value = '';
-    document.getElementById('passwordInput').focus();
-  }
-}
-
-document.getElementById('passwordInput').addEventListener('keypress', function(e) {
-  if (e.key === 'Enter') {
-    verifyPassword();
-  }
 }); 
