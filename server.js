@@ -2,10 +2,12 @@ const express = require('express');
 const fs = require('fs');
 const cors = require('cors');
 const path = require('path');
+const cron = require('node-cron');
 
 const app = express();
 const PORT = 5001;
 const DB_FILE = './db.json';
+const LAST_CRAWLED_FILE = './last_crawled.json';
 
 // CORS 설정
 app.use(cors({
@@ -407,6 +409,46 @@ app.delete('/delete-all', (req, res) => {
         console.error('Error in /delete-all:', error);
         res.status(500).json({ success: false, error: '전체 삭제 중 서버 오류' });
     }
+});
+
+// 13:30 기준 3시간 간격 (01:30, 04:30, 07:30, 10:30, 13:30, 16:30, 19:30, 22:30)
+cron.schedule('30 1,4,7,10,13,16,19,22 * * *', async () => {
+  console.log('⏰ 예약된 크롤링 작업 시작 (30분, 3시간 간격)');
+  try {
+    await crawlAllCategories();
+    console.log('✅ 예약된 크롤링 작업 완료 (30분, 3시간 간격)');
+  } catch (error) {
+    console.error('❌ 예약된 작업 중 오류:', error);
+  }
+}, {
+  timezone: 'Asia/Seoul'
+});
+
+function saveLastCrawled() {
+  const now = new Date().toISOString();
+  require('fs').writeFileSync(LAST_CRAWLED_FILE, JSON.stringify({ lastCrawled: now }));
+}
+
+function getLastCrawled() {
+  try {
+    const data = require('fs').readFileSync(LAST_CRAWLED_FILE, 'utf8');
+    return JSON.parse(data).lastCrawled;
+  } catch {
+    return null;
+  }
+}
+
+// 크롤링 함수 내부에서 마지막 시각 저장
+async function crawlAllCategories() {
+  // ... 기존 크롤링 코드 ...
+  // 크롤링 완료 후 마지막 시각 저장
+  saveLastCrawled();
+}
+
+// 마지막 크롤링 시각 API
+app.get('/api/last-crawled', (req, res) => {
+  const last = getLastCrawled();
+  res.json({ lastCrawled: last });
 });
 
 // 서버 시작
