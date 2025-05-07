@@ -85,7 +85,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // URL 단축
     async function shortenUrl(longUrl) {
-        const response = await fetch('http://localhost:5001/shorten', {
+        const response = await fetch('/shorten', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ url: longUrl })

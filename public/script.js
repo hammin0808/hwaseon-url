@@ -24,7 +24,7 @@ shortenBtn.addEventListener('click', async function(e) {
   }
 
   try {
-    const response = await fetch('http://localhost:5001/shorten', {
+    const response = await fetch('http://hwaseon/shorten', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ url: longUrl })
@@ -206,12 +206,12 @@ document.getElementById('shortenBtn').addEventListener('click', function() {
 
 // 대시보드 버튼 클릭 이벤트
 document.querySelector('.dashboard-btn').addEventListener('click', function() {
-    window.location.href = 'http://localhost:5001/dashboard';
+    window.location.href = '/dashboard';
 });
 
 // 다중 URL 단축 버튼 클릭 이벤트
 document.querySelector('.multiple-btn').addEventListener('click', function() {
-    window.location.href = 'http://localhost:5001/multiple';
+    window.location.href = '/multiple';
 });
 
 // 버튼 hover 효과 함수
