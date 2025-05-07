@@ -132,7 +132,7 @@ function getTodayMidnight() {
 }
 
 // 단축 URL 생성 시 도메인 설정
-const BASE_URL = 'https://hwaseon';
+const BASE_URL = 'https://hwaseon-url.onrender.com';
 
 // URL 단축 API
 app.post('/shorten', (req, res) => {
