@@ -8,10 +8,11 @@
   "dependencies": {
     "cors": "^2.8.5",
     "express": "^4.21.2",
-    "uuid": "^9.0.1"
+    "uuid": "^9.0.1",
+    "node-cron": "^3.0.3"
   },
   "keywords": [],
-  "author": "",
+  "author": "hwaseon",
   "license": "ISC",
   "description": ""
 }
