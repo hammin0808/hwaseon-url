@@ -152,4 +152,43 @@ document.addEventListener('DOMContentLoaded', function() {
             showNotification('전체 복사에 실패했습니다.', 'error');
         }
     });
+
+    // 대시보드 접근 비밀번호 보호
+    const dashboardBtn = document.querySelector('.dashboard-btn');
+    dashboardBtn.addEventListener('click', function(e) {
+        e.preventDefault();
+        showPasswordModal();
+    });
+
+    function showPasswordModal() {
+        const modal = document.getElementById('passwordModal');
+        modal.classList.add('show');
+        modal.style.display = 'flex';
+        document.getElementById('passwordInput').value = '';
+        document.getElementById('passwordInput').focus();
+    }
+
+    function closePasswordModal() {
+        const modal = document.getElementById('passwordModal');
+        modal.classList.remove('show');
+        modal.style.display = 'none';
+    }
+
+    function verifyPassword() {
+        const password = document.getElementById('passwordInput').value;
+        if (password === 'hwaseon@00') {
+            closePasswordModal();
+            window.location.href = '/dashboard';
+        } else {
+            alert('비밀번호가 일치하지 않습니다.');
+            document.getElementById('passwordInput').value = '';
+            document.getElementById('passwordInput').focus();
+        }
+    }
+
+    document.getElementById('passwordInput').addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            verifyPassword();
+        }
+    });
 }); 

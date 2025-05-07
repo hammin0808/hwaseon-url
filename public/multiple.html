@@ -44,8 +44,19 @@
 
         <div class="bottom-nav">
             <a href="/" class="home-btn">URL 단축</a>
-            <a href="/dashboard" class="dashboard-btn">대시보드</a>
+            <a href="#" class="dashboard-btn">대시보드</a>
         </div>
+    </div>
+    <!-- 비밀번호 모달 -->
+    <div class="password-modal" id="passwordModal" style="display:none;">
+      <div class="password-modal-content">
+        <h2>대시보드 접근</h2>
+        <input type="password" class="password-input" id="passwordInput" placeholder="비밀번호를 입력하세요">
+        <div class="password-buttons">
+          <button class="cancel-btn" onclick="closePasswordModal()">취소</button>
+          <button class="submit-btn" onclick="verifyPassword()">확인</button>
+        </div>
+      </div>
     </div>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="multiple.js"></script>
