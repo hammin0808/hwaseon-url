@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>다중 URL 단축</title>
+    <link rel="stylesheet" href="multiple.css">
+</head>
+<body>
+    <div class="container">
+        <h1>다중 URL 단축</h1>
+        <div class="upload-section">
+            <div class="file-upload">
+                <input type="file" id="excelFile" accept=".xlsx, .xls" style="display: none;">
+                <label for="excelFile" class="upload-btn">
+                    <span class="upload-icon">📁</span>
+                    <span class="upload-text">엑셀 파일 선택</span>
+                </label>
+                <span id="fileName" class="file-name"></span>
+            </div>
+            <button id="convertBtn" class="convert-btn" disabled>변환하기</button>
+        </div>
+
+        <div class="result-section" style="display: none;">
+            <div class="result-header">
+                <h2>변환 결과</h2>
+                <button id="copyAllBtn" class="copy-all-btn">전체 복사</button>
+            </div>
+            <div class="result-table-container">
+                <table class="result-table">
+                    <thead>
+                        <tr>
+                            <th>원본 URL</th>
+                            <th>단축 URL</th>
+                            <th>복사</th>
+                        </tr>
+                    </thead>
+                    <tbody id="resultTableBody">
+                        <!-- 결과가 여기에 동적으로 추가됩니다 -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="bottom-nav">
+            <a href="/" class="home-btn">URL 단축</a>
+            <a href="/dashboard" class="dashboard-btn">대시보드</a>
+        </div>
+    </div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="multiple.js"></script>
+</body>
+</html> 
