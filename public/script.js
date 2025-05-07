@@ -17,14 +17,20 @@ let currentShortCode = '';
 shortenBtn.addEventListener('click', async function(e) {
   e.preventDefault();
   
-  const longUrl = longUrlInput.value.trim();
+  // input 요소가 null이 아닌지 체크
+  const urlInput = document.getElementById('longUrl');
+  if (!urlInput) {
+    alert('URL 입력창을 찾을 수 없습니다.');
+    return;
+  }
+  const longUrl = urlInput.value.trim();
   if (!longUrl) {
     alert('URL을 입력하세요');
     return;
   }
 
   try {
-    const response = await fetch('http://hwaseon/shorten', {
+    const response = await fetch('/shorten', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ url: longUrl })
@@ -162,19 +168,20 @@ function isValidUrl(url) {
 
 // 단축 버튼 클릭 이벤트
 document.getElementById('shortenBtn').addEventListener('click', function() {
-    const urlInput = document.getElementById('urlInput');
+    const urlInput = document.getElementById('longUrl');
+    if (!urlInput) {
+        showNotification('URL 입력창을 찾을 수 없습니다.');
+        return;
+    }
     const url = urlInput.value.trim();
-    
     if (!url) {
         showNotification('URL을 입력하세요');
         return;
     }
-
     if (!isValidUrl(url)) {
         showNotification('올바른 URL 형식을 입력하세요');
         return;
     }
-    
     fetch('/shorten', {
         method: 'POST',
         headers: {
@@ -189,7 +196,6 @@ document.getElementById('shortenBtn').addEventListener('click', function() {
             <p>단축된 URL: <span id="shortUrl">${data.shortUrl}</span></p>
             <button id="copyBtn">복사하기</button>
         `;
-        
         // 복사 버튼 이벤트
         document.getElementById('copyBtn').addEventListener('click', function() {
             const shortUrl = document.getElementById('shortUrl').textContent;
@@ -205,6 +211,7 @@ document.getElementById('shortenBtn').addEventListener('click', function() {
 });
 
 // 대시보드 버튼 클릭 이벤트
+
 document.querySelector('.dashboard-btn').addEventListener('click', function() {
     window.location.href = '/dashboard';
 });
