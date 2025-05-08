@@ -142,31 +142,23 @@ app.post('/shorten', (req, res) => {
     if (!longUrl) {
         return res.status(400).json({ error: 'URL 누락' });
     }
-
-    // 중복되지 않는 코드 생성
     let shortCode;
     const db = loadDB();
     do {
         shortCode = generateShortCode();
     } while (db[shortCode]);
-
-    // 클라이언트 IP 추출 (로컬서버 포함)
     const ip = req.headers['x-forwarded-for'] || req.connection.remoteAddress || '';
-
-    // URL 저장
     db[shortCode] = {
-        longUrl: longUrl,   
+        longUrl: longUrl,
         shortUrl: `${BASE_URL}/${shortCode}`,
         todayVisits: 0,
         totalVisits: 0,
         createdAt: new Date().toISOString(),
         lastReset: new Date().toISOString(),
-        ip: ip
+        ip: ip,
+        logs: []
     };
-    
     saveDB(db);
-    console.log('Created new URL:', shortCode, db[shortCode]);
-
     res.json({ 
         shortUrl: db[shortCode].shortUrl,
         shortCode: shortCode
@@ -229,7 +221,6 @@ app.get('/urls', (req, res) => {
         if (!db || typeof db !== 'object') {
             return res.json([]);
         }
-
         const urls = Object.entries(db).map(([shortCode, data]) => ({
             shortCode,
             longUrl: data.longUrl || '',
@@ -237,15 +228,12 @@ app.get('/urls', (req, res) => {
             todayVisits: data.todayVisits || 0,
             totalVisits: data.totalVisits || 0,
             createdAt: data.createdAt || new Date().toISOString(),
-            ip: data.ip || 'unknown'
+            ip: data.ip || 'unknown',
+            logsCount: (data.logs && data.logs.length) || 0
         }));
-
-        // 생성일 기준으로 내림차순 정렬
         urls.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-        
         res.json(urls);
     } catch (error) {
-        console.error('Error in /urls:', error);
         res.status(500).json({ error: '서버 오류가 발생했습니다.' });
     }
 });
@@ -312,6 +300,12 @@ app.get('/:shortCode', (req, res, next) => {
     db[shortCode].todayVisits = (db[shortCode].todayVisits || 0) + 1;
     db[shortCode].totalVisits = (db[shortCode].totalVisits || 0) + 1;
     
+    // logs 기록
+    if (!db[shortCode].logs) db[shortCode].logs = [];
+    const ip = req.headers['x-forwarded-for'] || req.connection.remoteAddress || '';
+    db[shortCode].logs.unshift({ ip, time: new Date().toISOString() });
+    if (db[shortCode].logs.length > 100) db[shortCode].logs = db[shortCode].logs.slice(0, 100);
+    
     // DB 저장
     saveDB(db);
     
@@ -354,7 +348,8 @@ app.get('/urls/:shortCode/details', (req, res) => {
             ip: urlData.ip,
             todayVisits: urlData.todayVisits || 0,
             totalVisits: urlData.totalVisits || 0,
-            dailyLimit: 3000
+            dailyLimit: 3000,
+            logs: urlData.logs || []
         });
     } catch (error) {
         console.error('Error:', error);

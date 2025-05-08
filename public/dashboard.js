@@ -1,6 +1,6 @@
 // URL 목록 로드
 function loadUrls() {
-    fetch('/urls')
+    fetch('http://localhost:5001/urls')
         .then(response => {
             if (!response.ok) {
                 throw new Error('서버 응답 오류');
@@ -53,7 +53,7 @@ function loadUrls() {
 // URL 삭제
 function deleteUrl(shortCode) {
     if (confirm('정말 삭제하시겠습니까?')) {
-        fetch(`/urls/${shortCode}`, {
+        fetch(`http://localhost:5001/urls/${shortCode}`, {
             method: 'DELETE'
         })
         .then(response => {
@@ -71,7 +71,7 @@ function deleteUrl(shortCode) {
 
 // 상세 정보 표시
 function showDetails(shortCode) {
-    fetch(`/urls/${shortCode}/details`)
+    fetch(`http://localhost:5001/urls/${shortCode}/details`)
         .then(response => {
             if (!response.ok) {
                 throw new Error('상세 정보 조회 실패');
@@ -84,19 +84,24 @@ function showDetails(shortCode) {
             if (existingModal) {
                 existingModal.remove();
             }
-
             // 날짜 포맷팅
             const date = new Date(details.createdAt);
             const formattedDate = date.toLocaleString('ko-KR', {
-                year: 'numeric',
-                month: '2-digit',
-                day: '2-digit',
-                hour: '2-digit',
-                minute: '2-digit',
-                second: '2-digit',
-                hour12: false
+                year: 'numeric', month: '2-digit', day: '2-digit',
+                hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false
             });
-
+            // logs 표 생성
+            let logsTable = '';
+            if (details.logs && details.logs.length > 0) {
+                logsTable = `<table style="width:100%;margin-top:10px;font-size:13px;"><thead><tr><th>IP</th><th>접속시각</th></tr></thead><tbody>`;
+                details.logs.forEach(log => {
+                    const t = new Date(log.time).toLocaleString('ko-KR', {year:'2-digit',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false});
+                    logsTable += `<tr><td>${log.ip}</td><td>${t}</td></tr>`;
+                });
+                logsTable += '</tbody></table>';
+            } else {
+                logsTable = '<div style="color:#888;font-size:13px;">접속 기록 없음</div>';
+            }
             // 모달 생성
             const modal = document.createElement('div');
             modal.className = 'modal-overlay';
@@ -123,22 +128,22 @@ function showDetails(shortCode) {
                             <div class="detail-label">누적 방문자 수</div>
                             <div class="detail-value">${details.totalVisits || 0}</div>
                         </div>
+                        <div class="detail-item">
+                            <div class="detail-label">접속 로그</div>
+                            <div class="detail-value">${logsTable}</div>
+                        </div>
                     </div>
                 </div>
             `;
-
             // 모달 닫기 이벤트
             modal.querySelector('.modal-close').addEventListener('click', () => {
                 modal.remove();
             });
-
-            // 모달 외부 클릭 시 닫기
             modal.addEventListener('click', (e) => {
                 if (e.target === modal) {
                     modal.remove();
                 }
             });
-
             document.body.appendChild(modal);
         })
         .catch(error => {
@@ -159,7 +164,7 @@ document.addEventListener('DOMContentLoaded', function() {
         deleteAllBtn.addEventListener('click', async function() {
             if (!confirm('모든 URL을 삭제하시겠습니까?')) return;
             try {
-                const response = await fetch('/delete-all', { method: 'DELETE' });
+                const response = await fetch('http://localhost:5001/delete-all', { method: 'DELETE' });
                 if (!response.ok) throw new Error('전체 삭제 실패');
                 loadUrls();
                 alert('모든 URL이 삭제되었습니다.');
@@ -175,7 +180,7 @@ document.addEventListener('DOMContentLoaded', function() {
         downloadExcelBtn.addEventListener('click', async function() {
             try {
                 // 1. 전체 URL 목록 가져오기
-                const urlRes = await fetch('/urls');
+                const urlRes = await fetch('http://localhost:5001/urls');
                 if (!urlRes.ok) throw new Error('URL 목록 조회 실패');
                 const urls = await urlRes.json();
                 if (!Array.isArray(urls) || urls.length === 0) {
@@ -185,24 +190,24 @@ document.addEventListener('DOMContentLoaded', function() {
                 // 2. 각 URL의 상세 정보(IP 등) 병합
                 const dataWithDetails = await Promise.all(urls.map(async url => {
                     try {
-                        const detailRes = await fetch(`/urls/${url.shortCode}/details`);
+                        const detailRes = await fetch(`http://localhost:5001/urls/${url.shortCode}/details`);
                         if (!detailRes.ok) throw new Error();
                         const details = await detailRes.json();
                         return {
                             ...url,
                             ip: details.ip || '',
                             createdAt: details.createdAt || '',
+                            logs: details.logs || []
                         };
                     } catch {
-                        return { ...url, ip: '', createdAt: '' };
+                        return { ...url, ip: '', createdAt: '', logs: [] };
                     }
                 }));
                 // 3. 엑셀 데이터 생성
                 const wsData = [
-                    ['Short URL', 'Long URL', '오늘 방문', '누적 방문', '생성일 / IP']
+                    ['Short URL', 'Long URL', '오늘 방문', '누적 방문', '생성일 / IP', '접속 로그']
                 ];
                 dataWithDetails.forEach(item => {
-                    // 날짜 포맷: YYYY. MM. DD. HH:mm:ss
                     let formattedDate = '';
                     if (item.createdAt) {
                         const date = new Date(item.createdAt);
@@ -210,12 +215,17 @@ document.addEventListener('DOMContentLoaded', function() {
                             `${String(date.getHours()).padStart(2,'0')}:${String(date.getMinutes()).padStart(2,'0')}:${String(date.getSeconds()).padStart(2,'0')}`;
                     }
                     const dateIp = `${formattedDate} (${item.ip || ''})`;
+                    // logs를 "ip (time)" 형식으로 모두 합침
+                    const logsStr = (item.logs && item.logs.length > 0)
+                        ? item.logs.map(log => `${log.ip} (${new Date(log.time).toLocaleString('ko-KR', {year:'2-digit',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false})})`).join(', ')
+                        : '';
                     wsData.push([
                         item.shortUrl,
                         item.longUrl,
                         item.todayVisits,
                         item.totalVisits,
-                        dateIp
+                        dateIp,
+                        logsStr
                     ]);
                 });
                 const ws = XLSX.utils.aoa_to_sheet(wsData);
@@ -225,7 +235,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     { wch: 50 }, // Long URL
                     { wch: 10 }, // 오늘 방문
                     { wch: 10 }, // 누적 방문
-                    { wch: 32 }  // 생성일 / IP
+                    { wch: 32 },  // 생성일 / IP
+                    { wch: 60 }   // 접속 로그
                 ];
                 const wb = XLSX.utils.book_new();
                 XLSX.utils.book_append_sheet(wb, ws, 'URL 목록');

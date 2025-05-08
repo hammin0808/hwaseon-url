@@ -166,6 +166,12 @@ document.addEventListener('DOMContentLoaded', function() {
         modal.style.display = 'flex';
         document.getElementById('passwordInput').value = '';
         document.getElementById('passwordInput').focus();
+        // 취소 버튼 이벤트를 여기서 안전하게 등록
+        const cancelBtn = document.querySelector('.password-buttons .cancel-btn');
+        cancelBtn.onclick = function(e) {
+            e.preventDefault();
+            closePasswordModal();
+        };
     }
 
     function closePasswordModal() {

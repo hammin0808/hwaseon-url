@@ -25,7 +25,7 @@ shortenBtn.addEventListener('click', async function(e) {
   }
   hwaseonongUrl = urlInput.value.trim();
   if (!longUrl) {
-    alert('URL을 입력하세요');
+    alert('URL을 입력하세요');ㅋ
     return;
   }
 
