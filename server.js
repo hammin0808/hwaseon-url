@@ -327,7 +327,7 @@ app.get('/:shortCode', (req, res, next) => {
         'Surrogate-Control': 'no-store'
     });
     
-    return res.redirect(302, targetUrl); // 301 대신 302 사용
+    return res.redirect(302, targetUrl);
 });
 
 // URL 상세 정보 조회 API

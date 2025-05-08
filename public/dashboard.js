@@ -148,7 +148,7 @@ function showDetails(shortCode) {
         })
         .catch(error => {
             console.error('Error:', error);
-            alert('상세 정보 조회 중 오류가 발생했습니다.');
+            alert('상세 정보를 불러오는 중 오류가 발생했습니다.');
         });
 }
 
