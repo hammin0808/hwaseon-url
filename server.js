@@ -302,20 +302,14 @@ app.get('/:shortCode', (req, res, next) => {
     const botUserAgents = [/bot/i, /spider/i, /crawl/i, /monitor/i, /render/i, /health/i];
     const isBot = botUserAgents.some(re => re.test(userAgent));
     const now = new Date();
-    // 중복 방문 방지: 같은 IP가 10초 이내에 방문했으면 카운트하지 않음
-    const lastVisit = db[shortCode].logs.find(log => log.ip === ip);
-    let shouldCount = true;
-    if (lastVisit) {
-        const lastTime = new Date(lastVisit.time);
-        if ((now - lastTime) < 10 * 1000) {
-            shouldCount = false;
-        }
+    // 하루 트래픽 제한: 5,000
+    if (!isBot && (db[shortCode].todayVisits || 0) >= 5000) {
+        return res.status(429).send('하루 트래픽(5,000회) 초과');
     }
-    if (shouldCount && !isBot) {
+    // 방문자수 카운트 (중복방문방지 없음)
+    if (!isBot) {
         db[shortCode].todayVisits = (db[shortCode].todayVisits || 0) + 1;
         db[shortCode].totalVisits = (db[shortCode].totalVisits || 0) + 1;
-    }
-    if (!isBot) {
         db[shortCode].logs.unshift({ ip, time: now.toISOString() });
         if (db[shortCode].logs.length > 100) db[shortCode].logs = db[shortCode].logs.slice(0, 100);
     }

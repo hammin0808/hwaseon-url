@@ -266,12 +266,12 @@ document.addEventListener('DOMContentLoaded', function() {
                     { wch: 10 }, // 누적 방문
                     { wch: 32 }  // 생성일 / IP
                 ];
-                // 헤더 스타일 적용 (파란색 배경, 흰색 글씨, 굵은 글씨)
+                // 헤더 스타일 적용 (보라색 계열 배경, 흰색 글씨, 굵은 글씨)
                 const dashboardHeader = ['A1','B1','C1','D1','E1'];
                 dashboardHeader.forEach(cell => {
                     if(wsDashboard[cell]) {
                         wsDashboard[cell].s = {
-                            fill: { fgColor: { rgb: '1877F2' } },
+                            fill: { fgColor: { rgb: '7D5FFF' } },
                             font: { color: { rgb: 'FFFFFF' }, bold: true },
                             alignment: { horizontal: 'center', vertical: 'center' }
                         };
@@ -285,12 +285,12 @@ document.addEventListener('DOMContentLoaded', function() {
                     { wch: 40 }, // 접속 로그
                     { wch: 22 }  // 접속시간
                 ];
-                // 헤더 스타일 적용 (파란색 배경, 흰색 글씨, 굵은 글씨)
+                // 헤더 스타일 적용 (보라색 계열 배경, 흰색 글씨, 굵은 글씨)
                 const detailHeader = ['A1','B1','C1','D1','E1'];
                 detailHeader.forEach(cell => {
                     if(wsDetail[cell]) {
                         wsDetail[cell].s = {
-                            fill: { fgColor: { rgb: '1877F2' } },
+                            fill: { fgColor: { rgb: '7D5FFF' } },
                             font: { color: { rgb: 'FFFFFF' }, bold: true },
                             alignment: { horizontal: 'center', vertical: 'center' }
                         };
