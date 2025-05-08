@@ -423,6 +423,23 @@ cron.schedule('30 1,4,7,10,13,16,19,22 * * *', async () => {
   timezone: 'Asia/Seoul'
 });
 
+// 매일 자정(todayVisits) 초기화 스케줄러
+const resetTodayVisits = () => {
+    const db = loadDB();
+    let changed = false;
+    for (const code in db) {
+        if (db[code].todayVisits && db[code].todayVisits !== 0) {
+            db[code].todayVisits = 0;
+            db[code].lastReset = new Date().toISOString();
+            changed = true;
+        }
+    }
+    if (changed) saveDB(db);
+    console.log('todayVisits 모두 0으로 초기화됨');
+};
+const cron = require('node-cron');
+cron.schedule('0 0 * * *', resetTodayVisits, { timezone: 'Asia/Seoul' });
+
 function saveLastCrawled() {
   const now = new Date().toISOString();
   require('fs').writeFileSync(LAST_CRAWLED_FILE, JSON.stringify({ lastCrawled: now }));
