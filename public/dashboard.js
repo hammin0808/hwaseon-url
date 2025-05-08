@@ -86,10 +86,13 @@ function showDetails(shortCode) {
             }
             // 날짜 포맷팅
             const date = new Date(details.createdAt);
-            const formattedDate = date.toLocaleString('ko-KR', {
-                year: 'numeric', month: '2-digit', day: '2-digit',
-                hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false
-            });
+            const formattedDate = date.getFullYear() + '. ' + String(date.getMonth()+1).padStart(2,'0') + '. ' + String(date.getDate()).padStart(2,'0') + '. ' +
+                String(date.getHours()).padStart(2,'0') + ':' + String(date.getMinutes()).padStart(2,'0') + ':' + String(date.getSeconds()).padStart(2,'0');
+            // IP 괄호로 한 줄
+            let ipDisplay = details.ip || 'localhost';
+            if (ipDisplay && typeof ipDisplay === 'string') {
+                ipDisplay = '(' + ipDisplay.split(',').map(ip => ip.trim()).join(', ') + ')';
+            }
             // logs 표 생성
             let logsTable = '';
             if (details.logs && details.logs.length > 0) {
@@ -114,7 +117,7 @@ function showDetails(shortCode) {
                     <div class="detail-grid">
                         <div class="detail-item">
                             <div class="detail-label">생성일 / IP</div>
-                            <div class="detail-value">${formattedDate} (${details.ip || 'localhost'})</div>
+                            <div class="detail-value">${formattedDate} <br>${ipDisplay}</div>
                         </div>
                         <div class="detail-item">
                             <div class="detail-label">하루 접속허용수</div>
@@ -152,8 +155,8 @@ function showDetails(shortCode) {
         });
 }
 
-// 5초마다 URL 목록 자동 새로고침
-setInterval(loadUrls, 5000);
+// 60초마다 URL 목록 자동 새로고침
+setInterval(loadUrls, 60000);
 
 // 페이지 로드 시 URL 목록 로드
 document.addEventListener('DOMContentLoaded', function() {
@@ -205,7 +208,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 }));
                 // 3. 엑셀 데이터 생성
                 const wsData = [
-                    ['Short URL', 'Long URL', '오늘 방문', '누적 방문', '생성일 / IP', '접속 로그']
+                    ['Short URL', 'Long URL', '오늘 방문', '누적 방문', '생성일 / IP', '접속 로그', '접속 시각']
                 ];
                 dataWithDetails.forEach(item => {
                     let formattedDate = '';
@@ -215,17 +218,20 @@ document.addEventListener('DOMContentLoaded', function() {
                             `${String(date.getHours()).padStart(2,'0')}:${String(date.getMinutes()).padStart(2,'0')}:${String(date.getSeconds()).padStart(2,'0')}`;
                     }
                     const dateIp = `${formattedDate} (${item.ip || ''})`;
-                    // logs를 "ip (time)" 형식으로 모두 합침
-                    const logsStr = (item.logs && item.logs.length > 0)
-                        ? item.logs.map(log => `${log.ip} (${new Date(log.time).toLocaleString('ko-KR', {year:'2-digit',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false})})`).join(', ')
-                        : '';
+                    // logs를 분리: IP만, 시각만 각각 줄바꿈
+                    let logsIp = '', logsTime = '';
+                    if (item.logs && item.logs.length > 0) {
+                        logsIp = item.logs.map(log => log.ip).join('\n');
+                        logsTime = item.logs.map(log => new Date(log.time).toLocaleString('ko-KR', {year:'2-digit',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false})).join('\n');
+                    }
                     wsData.push([
                         item.shortUrl,
                         item.longUrl,
                         item.todayVisits,
                         item.totalVisits,
                         dateIp,
-                        logsStr
+                        logsIp,
+                        logsTime
                     ]);
                 });
                 const ws = XLSX.utils.aoa_to_sheet(wsData);
@@ -236,7 +242,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     { wch: 10 }, // 오늘 방문
                     { wch: 10 }, // 누적 방문
                     { wch: 32 },  // 생성일 / IP
-                    { wch: 60 }   // 접속 로그
+                    { wch: 40 },  // 접속 로그
+                    { wch: 22 }   // 접속 시각
                 ];
                 const wb = XLSX.utils.book_new();
                 XLSX.utils.book_append_sheet(wb, ws, 'URL 목록');
