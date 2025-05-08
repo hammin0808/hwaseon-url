@@ -96,10 +96,10 @@ function showDetails(shortCode) {
             // logs 표 생성
             let logsTable = '';
             if (details.logs && details.logs.length > 0) {
-                logsTable = `<table style="width:100%;margin-top:10px;font-size:13px;"><thead><tr><th>IP</th><th>접속시각</th></tr></thead><tbody>`;
+                logsTable = `<table style="width:100%;margin-top:10px;font-size:13px;text-align:center;"><thead><tr><th style='text-align:center;'>IP</th><th style='text-align:center;'>접속시간</th></tr></thead><tbody>`;
                 details.logs.forEach(log => {
                     const t = new Date(log.time).toLocaleString('ko-KR', {year:'2-digit',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false});
-                    logsTable += `<tr><td>${log.ip}</td><td>${t}</td></tr>`;
+                    logsTable += `<tr><td style='text-align:center;'>${log.ip}</td><td style='text-align:center;'>${t}</td></tr>`;
                 });
                 logsTable += '</tbody></table>';
             } else {
@@ -155,8 +155,7 @@ function showDetails(shortCode) {
         });
 }
 
-// 60초마다 URL 목록 자동 새로고침
-setInterval(loadUrls, 60000);
+
 
 // 페이지 로드 시 URL 목록 로드
 document.addEventListener('DOMContentLoaded', function() {
@@ -212,7 +211,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 ];
                 // 3. 엑셀 데이터 생성 (시트 2: 상세보기)
                 const wsDataDetail = [
-                    ['Short URL', 'Long URL', '생성일 / IP', '접속 로그', '접속 시각']
+                    ['Short URL', 'Long URL', '생성일 / IP', '접속 로그', '접속시간']
                 ];
                 dataWithDetails.forEach(item => {
                     // 생성일/ IP (맨 앞 IP만)
@@ -267,14 +266,36 @@ document.addEventListener('DOMContentLoaded', function() {
                     { wch: 10 }, // 누적 방문
                     { wch: 32 }  // 생성일 / IP
                 ];
+                // 헤더 스타일 적용 (파란색 배경, 흰색 글씨, 굵은 글씨)
+                const dashboardHeader = ['A1','B1','C1','D1','E1'];
+                dashboardHeader.forEach(cell => {
+                    if(wsDashboard[cell]) {
+                        wsDashboard[cell].s = {
+                            fill: { fgColor: { rgb: '1877F2' } },
+                            font: { color: { rgb: 'FFFFFF' }, bold: true },
+                            alignment: { horizontal: 'center', vertical: 'center' }
+                        };
+                    }
+                });
                 const wsDetail = XLSX.utils.aoa_to_sheet(wsDataDetail);
                 wsDetail['!cols'] = [
                     { wch: 30 }, // Short URL
                     { wch: 50 }, // Long URL
                     { wch: 32 }, // 생성일 / IP
                     { wch: 40 }, // 접속 로그
-                    { wch: 22 }  // 접속 시각
+                    { wch: 22 }  // 접속시간
                 ];
+                // 헤더 스타일 적용 (파란색 배경, 흰색 글씨, 굵은 글씨)
+                const detailHeader = ['A1','B1','C1','D1','E1'];
+                detailHeader.forEach(cell => {
+                    if(wsDetail[cell]) {
+                        wsDetail[cell].s = {
+                            fill: { fgColor: { rgb: '1877F2' } },
+                            font: { color: { rgb: 'FFFFFF' }, bold: true },
+                            alignment: { horizontal: 'center', vertical: 'center' }
+                        };
+                    }
+                });
                 const wb = XLSX.utils.book_new();
                 XLSX.utils.book_append_sheet(wb, wsDashboard, 'URL 대시보드');
                 XLSX.utils.book_append_sheet(wb, wsDetail, '상세보기');
