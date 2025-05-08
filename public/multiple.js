@@ -85,6 +85,14 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // URL 단축
     async function shortenUrl(longUrl) {
+        // http/https 없으면 자동으로 붙이기
+        if (typeof longUrl === 'string' && !/^https?:\/\//i.test(longUrl)) {
+            longUrl = 'https://' + longUrl;
+        }
+        // 객체면 문자열로 변환
+        if (typeof longUrl !== 'string') {
+            longUrl = String(longUrl);
+        }
         const response = await fetch('/shorten', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },

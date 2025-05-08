@@ -138,9 +138,13 @@ const BASE_URL = 'https://hwaseon-url.onrender.com';
 
 // URL 단축 API
 app.post('/shorten', (req, res) => {
-    const longUrl = req.body.url;
+    let longUrl = req.body.url;
     if (!longUrl) {
         return res.status(400).json({ error: 'URL 누락' });
+    }
+    // longUrl이 객체면 문자열로 변환
+    if (typeof longUrl !== 'string') {
+        longUrl = String(longUrl);
     }
     let shortCode;
     const db = loadDB();

@@ -245,6 +245,18 @@ document.addEventListener('DOMContentLoaded', function() {
                     { wch: 40 },  // 접속 로그
                     { wch: 22 }   // 접속 시각
                 ];
+                // wrapText 스타일 적용 (접속 로그, 접속 시각 컬럼)
+                const rowCount = wsData.length;
+                for (let i = 2; i <= rowCount; i++) { // 1-based index, 1은 헤더
+                    const logCell = ws[`F${i}`]; // 접속 로그
+                    const timeCell = ws[`G${i}`]; // 접속 시각
+                    if (logCell) {
+                        logCell.s = { alignment: { wrapText: true } };
+                    }
+                    if (timeCell) {
+                        timeCell.s = { alignment: { wrapText: true } };
+                    }
+                }
                 const wb = XLSX.utils.book_new();
                 XLSX.utils.book_append_sheet(wb, ws, 'URL 목록');
                 XLSX.writeFile(wb, 'url_list.xlsx');

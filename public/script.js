@@ -16,19 +16,24 @@ let currentShortCode = '';
 // URL 단축
 shortenBtn.addEventListener('click', async function(e) {
   e.preventDefault();
-  
-  // input 요소가 null이 아닌지 체크
   const urlInput = document.getElementById('longUrl');
   if (!urlInput) {
     alert('URL 입력창을 찾을 수 없습니다.');
     return;
   }
-  hwaseonongUrl = urlInput.value.trim();
+  let longUrl = urlInput.value.trim();
   if (!longUrl) {
-    alert('URL을 입력하세요');ㅋ
+    alert('URL을 입력하세요');
     return;
   }
-
+  // http/https 없으면 자동으로 붙이기
+  if (!/^https?:\/\//i.test(longUrl)) {
+    longUrl = 'https://' + longUrl;
+  }
+  // 객체면 문자열로 변환
+  if (typeof longUrl !== 'string') {
+    longUrl = String(longUrl);
+  }
   try {
     const response = await fetch('/shorten', {
       method: 'POST',
@@ -165,51 +170,6 @@ function isValidUrl(url) {
         return false;
     }
 }
-
-// 단축 버튼 클릭 이벤트
-document.getElementById('shortenBtn').addEventListener('click', function() {
-    const urlInput = document.getElementById('longUrl');
-    if (!urlInput) {
-        showNotification('URL 입력창을 찾을 수 없습니다.');
-        return;
-    }
-    const url = urlInput.value.trim();
-    if (!url) {
-        showNotification('URL을 입력하세요');
-        return;
-    }
-    if (!isValidUrl(url)) {
-        showNotification('올바른 URL 형식을 입력하세요');
-        return;
-    }
-    fetch('/shorten', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ url: url })
-    })
-    .then(response => response.json())
-    .then(data => {
-        const resultDiv = document.getElementById('result');
-        resultDiv.innerHTML = `
-            <p>단축된 URL: <span id="shortUrl">${data.shortUrl}</span></p>
-            <button id="copyBtn">복사하기</button>
-        `;
-        // 복사 버튼 이벤트
-        document.getElementById('copyBtn').addEventListener('click', function() {
-            const shortUrl = document.getElementById('shortUrl').textContent;
-            navigator.clipboard.writeText(shortUrl).then(() => {
-                
-howNotification('URL이 복사되었습니다');
-            });
-        });
-    })
-    .catch(error => {
-        console.error('Error:', error);
-        showNotification('URL 단축에 실패했습니다');
-    });
-});
 
 // 대시보드 버튼 클릭 이벤트
 
