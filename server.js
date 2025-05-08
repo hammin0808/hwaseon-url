@@ -347,7 +347,7 @@ app.get('/urls/:shortCode/details', (req, res) => {
             ip: urlData.ip,
             todayVisits: urlData.todayVisits || 0,
             totalVisits: urlData.totalVisits || 0,
-            dailyLimit: 3000,
+            dailyLimit: 5000,
             logs: urlData.logs || []
         });
     } catch (error) {

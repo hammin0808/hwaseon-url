@@ -121,7 +121,7 @@ function showDetails(shortCode) {
                         </div>
                         <div class="detail-item">
                             <div class="detail-label">하루 접속허용수</div>
-                            <div class="detail-value highlight">3,000</div>
+                            <div class="detail-value highlight">5,000</div>
                         </div>
                         <div class="detail-item">
                             <div class="detail-label">오늘 방문자 수</div>
