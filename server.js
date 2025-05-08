@@ -138,13 +138,9 @@ const BASE_URL = 'https://hwaseon-url.onrender.com';
 
 // URL 단축 API
 app.post('/shorten', (req, res) => {
-    let longUrl = req.body.url;
+    const longUrl = req.body.url;
     if (!longUrl) {
         return res.status(400).json({ error: 'URL 누락' });
-    }
-    // longUrl이 객체면 문자열로 변환
-    if (typeof longUrl !== 'string') {
-        longUrl = String(longUrl);
     }
     let shortCode;
     const db = loadDB();
@@ -284,45 +280,43 @@ app.put('/urls/:shortCode', (req, res) => {
 // 단축 URL 리다이렉트
 app.get('/:shortCode', (req, res, next) => {
     const { shortCode } = req.params;
-    
     // 특정 경로는 무시하고 다음 미들웨어로 전달
     if (shortCode === 'dashboard' || 
         shortCode === 'multiple' || 
         shortCode.includes('.')) {
         return next();
     }
-
     // DB 로드
     const db = loadDB();
-    
     // 단축 URL이 존재하는지 확인
     if (!db[shortCode]) {
         return res.status(404).send('유효하지 않은 단축 URL입니다.');
     }
-
-    // 방문수 증가
-    db[shortCode].todayVisits = (db[shortCode].todayVisits || 0) + 1;
-    db[shortCode].totalVisits = (db[shortCode].totalVisits || 0) + 1;
-    
     // logs 기록
     if (!db[shortCode].logs) db[shortCode].logs = [];
     const ip = req.headers['x-forwarded-for'] || req.connection.remoteAddress || '';
-    db[shortCode].logs.unshift({ ip, time: new Date().toISOString() });
+    const now = new Date();
+    // 중복 방문 방지: 같은 IP가 1분 이내에 방문했으면 카운트하지 않음
+    const lastVisit = db[shortCode].logs.find(log => log.ip === ip);
+    let shouldCount = true;
+    if (lastVisit) {
+        const lastTime = new Date(lastVisit.time);
+        if ((now - lastTime) < 60 * 1000) {
+            shouldCount = false;
+        }
+    }
+    if (shouldCount) {
+        db[shortCode].todayVisits = (db[shortCode].todayVisits || 0) + 1;
+        db[shortCode].totalVisits = (db[shortCode].totalVisits || 0) + 1;
+    }
+    db[shortCode].logs.unshift({ ip, time: now.toISOString() });
     if (db[shortCode].logs.length > 100) db[shortCode].logs = db[shortCode].logs.slice(0, 100);
-    
     // DB 저장
     saveDB(db);
-    
     // 리다이렉트
     const targetUrl = db[shortCode].longUrl.startsWith('http') 
         ? db[shortCode].longUrl 
         : 'https://' + db[shortCode].longUrl;
-    
-    console.log('Visit increased for', shortCode, ':', {
-        today: db[shortCode].todayVisits,
-        total: db[shortCode].totalVisits
-    });
-    
     // 캐시 제어 헤더 추가
     res.set({
         'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
@@ -330,7 +324,6 @@ app.get('/:shortCode', (req, res, next) => {
         'Expires': '0',
         'Surrogate-Control': 'no-store'
     });
-    
     return res.redirect(302, targetUrl);
 });
 
@@ -422,23 +415,6 @@ cron.schedule('30 1,4,7,10,13,16,19,22 * * *', async () => {
 }, {
   timezone: 'Asia/Seoul'
 });
-
-// 매일 자정(todayVisits) 초기화 스케줄러
-const resetTodayVisits = () => {
-    const db = loadDB();
-    let changed = false;
-    for (const code in db) {
-        if (db[code].todayVisits && db[code].todayVisits !== 0) {
-            db[code].todayVisits = 0;
-            db[code].lastReset = new Date().toISOString();
-            changed = true;
-        }
-    }
-    if (changed) saveDB(db);
-    console.log('todayVisits 모두 0으로 초기화됨');
-};
-const cron = require('node-cron');
-cron.schedule('0 0 * * *', resetTodayVisits, { timezone: 'Asia/Seoul' });
 
 function saveLastCrawled() {
   const now = new Date().toISOString();
