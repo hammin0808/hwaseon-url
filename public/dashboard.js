@@ -88,10 +88,10 @@ function showDetails(shortCode) {
             const date = new Date(details.createdAt);
             const formattedDate = date.getFullYear() + '. ' + String(date.getMonth()+1).padStart(2,'0') + '. ' + String(date.getDate()).padStart(2,'0') + '. ' +
                 String(date.getHours()).padStart(2,'0') + ':' + String(date.getMinutes()).padStart(2,'0') + ':' + String(date.getSeconds()).padStart(2,'0');
-            // IP 괄호로 한 줄
+            // IP 괄호로 한 줄(맨 앞 IP만)
             let ipDisplay = details.ip || 'localhost';
             if (ipDisplay && typeof ipDisplay === 'string') {
-                ipDisplay = '(' + ipDisplay.split(',').map(ip => ip.trim()).join(', ') + ')';
+                ipDisplay = '(' + ipDisplay.split(',')[0].trim() + ')';
             }
             // logs 표 생성
             let logsTable = '';
@@ -206,59 +206,78 @@ document.addEventListener('DOMContentLoaded', function() {
                         return { ...url, ip: '', createdAt: '', logs: [] };
                     }
                 }));
-                // 3. 엑셀 데이터 생성
-                const wsData = [
-                    ['Short URL', 'Long URL', '오늘 방문', '누적 방문', '생성일 / IP', '접속 로그', '접속 시각']
+                // 3. 엑셀 데이터 생성 (시트 1: URL 대시보드)
+                const wsDataDashboard = [
+                    ['Short URL', 'Long URL', '오늘 방문', '누적 방문', '생성일 / IP']
+                ];
+                // 3. 엑셀 데이터 생성 (시트 2: 상세보기)
+                const wsDataDetail = [
+                    ['Short URL', 'Long URL', '생성일 / IP', '접속 로그', '접속 시각']
                 ];
                 dataWithDetails.forEach(item => {
+                    // 생성일/ IP (맨 앞 IP만)
                     let formattedDate = '';
                     if (item.createdAt) {
                         const date = new Date(item.createdAt);
                         formattedDate = `${date.getFullYear()}. ${String(date.getMonth()+1).padStart(2,'0')}. ${String(date.getDate()).padStart(2,'0')}. ` +
                             `${String(date.getHours()).padStart(2,'0')}:${String(date.getMinutes()).padStart(2,'0')}:${String(date.getSeconds()).padStart(2,'0')}`;
                     }
-                    const dateIp = `${formattedDate} (${item.ip || ''})`;
-                    // logs를 분리: IP만, 시각만 각각 줄바꿈
-                    let logsIp = '', logsTime = '';
-                    if (item.logs && item.logs.length > 0) {
-                        logsIp = item.logs.map(log => log.ip).join('\n');
-                        logsTime = item.logs.map(log => new Date(log.time).toLocaleString('ko-KR', {year:'2-digit',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false})).join('\n');
+                    let ipDisplay = item.ip || '';
+                    if (ipDisplay && typeof ipDisplay === 'string') {
+                        ipDisplay = '(' + ipDisplay.split(',')[0].trim() + ')';
                     }
-                    wsData.push([
+                    const dateIp = `${formattedDate} ${ipDisplay}`;
+                    // 대시보드 시트 한 줄
+                    wsDataDashboard.push([
                         item.shortUrl,
                         item.longUrl,
                         item.todayVisits,
                         item.totalVisits,
-                        dateIp,
-                        logsIp,
-                        logsTime
+                        dateIp
                     ]);
+                    // 상세보기 시트: 접속 로그/시각 여러 개면 행 여러 개
+                    if (item.logs && item.logs.length > 0) {
+                        item.logs.forEach((log, idx) => {
+                            const logIp = log.ip;
+                            const logTime = new Date(log.time).toLocaleString('ko-KR', {year:'2-digit',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false});
+                            wsDataDetail.push([
+                                idx === 0 ? item.shortUrl : '',
+                                idx === 0 ? item.longUrl : '',
+                                idx === 0 ? dateIp : '',
+                                logIp,
+                                logTime
+                            ]);
+                        });
+                    } else {
+                        wsDataDetail.push([
+                            item.shortUrl,
+                            item.longUrl,
+                            dateIp,
+                            '',
+                            ''
+                        ]);
+                    }
                 });
-                const ws = XLSX.utils.aoa_to_sheet(wsData);
-                // 컬럼 너비 지정
-                ws['!cols'] = [
+                // 시트 생성 및 워크북에 추가
+                const wsDashboard = XLSX.utils.aoa_to_sheet(wsDataDashboard);
+                wsDashboard['!cols'] = [
                     { wch: 30 }, // Short URL
                     { wch: 50 }, // Long URL
                     { wch: 10 }, // 오늘 방문
                     { wch: 10 }, // 누적 방문
-                    { wch: 32 },  // 생성일 / IP
-                    { wch: 40 },  // 접속 로그
-                    { wch: 22 }   // 접속 시각
+                    { wch: 32 }  // 생성일 / IP
                 ];
-                // wrapText 스타일 적용 (접속 로그, 접속 시각 컬럼)
-                const rowCount = wsData.length;
-                for (let i = 2; i <= rowCount; i++) { // 1-based index, 1은 헤더
-                    const logCell = ws[`F${i}`]; // 접속 로그
-                    const timeCell = ws[`G${i}`]; // 접속 시각
-                    if (logCell) {
-                        logCell.s = { alignment: { wrapText: true } };
-                    }
-                    if (timeCell) {
-                        timeCell.s = { alignment: { wrapText: true } };
-                    }
-                }
+                const wsDetail = XLSX.utils.aoa_to_sheet(wsDataDetail);
+                wsDetail['!cols'] = [
+                    { wch: 30 }, // Short URL
+                    { wch: 50 }, // Long URL
+                    { wch: 32 }, // 생성일 / IP
+                    { wch: 40 }, // 접속 로그
+                    { wch: 22 }  // 접속 시각
+                ];
                 const wb = XLSX.utils.book_new();
-                XLSX.utils.book_append_sheet(wb, ws, 'URL 목록');
+                XLSX.utils.book_append_sheet(wb, wsDashboard, 'URL 대시보드');
+                XLSX.utils.book_append_sheet(wb, wsDetail, '상세보기');
                 XLSX.writeFile(wb, 'url_list.xlsx');
             } catch (e) {
                 alert('엑셀 다운로드 중 오류가 발생했습니다.');

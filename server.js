@@ -294,7 +294,10 @@ app.get('/:shortCode', (req, res, next) => {
     }
     // logs 기록
     if (!db[shortCode].logs) db[shortCode].logs = [];
-    const ip = req.headers['x-forwarded-for'] || req.connection.remoteAddress || '';
+    let ip = req.headers['x-forwarded-for'] || req.connection.remoteAddress || '';
+    if (typeof ip === 'string' && ip.includes(',')) {
+        ip = ip.split(',')[0].trim();
+    }
     const now = new Date();
     // 중복 방문 방지: 같은 IP가 1분 이내에 방문했으면 카운트하지 않음
     const lastVisit = db[shortCode].logs.find(log => log.ip === ip);
