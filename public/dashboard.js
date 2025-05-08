@@ -1,6 +1,6 @@
 // URL 목록 로드
 function loadUrls() {
-    fetch('http://localhost:5001/urls')
+    fetch('https://hwaseon-url.onrender.com/urls')
         .then(response => {
             if (!response.ok) {
                 throw new Error('서버 응답 오류');
@@ -53,7 +53,7 @@ function loadUrls() {
 // URL 삭제
 function deleteUrl(shortCode) {
     if (confirm('정말 삭제하시겠습니까?')) {
-        fetch(`http://localhost:5001/urls/${shortCode}`, {
+        fetch(`https://hwaseon-url.onrender.com/urls/${shortCode}`, {
             method: 'DELETE'
         })
         .then(response => {
@@ -71,7 +71,7 @@ function deleteUrl(shortCode) {
 
 // 상세 정보 표시
 function showDetails(shortCode) {
-    fetch(`http://localhost:5001/urls/${shortCode}/details`)
+    fetch(`https://hwaseon-url.onrender.com/urls/${shortCode}/details`)
         .then(response => {
             if (!response.ok) {
                 throw new Error('상세 정보 조회 실패');
@@ -164,7 +164,7 @@ document.addEventListener('DOMContentLoaded', function() {
         deleteAllBtn.addEventListener('click', async function() {
             if (!confirm('모든 URL을 삭제하시겠습니까?')) return;
             try {
-                const response = await fetch('http://localhost:5001/delete-all', { method: 'DELETE' });
+                const response = await fetch('https://hwaseon-url.onrender.com/delete-all', { method: 'DELETE' });
                 if (!response.ok) throw new Error('전체 삭제 실패');
                 loadUrls();
                 alert('모든 URL이 삭제되었습니다.');
@@ -180,7 +180,7 @@ document.addEventListener('DOMContentLoaded', function() {
         downloadExcelBtn.addEventListener('click', async function() {
             try {
                 // 1. 전체 URL 목록 가져오기
-                const urlRes = await fetch('http://localhost:5001/urls');
+                const urlRes = await fetch('https://hwaseon-url.onrender.com/urls');
                 if (!urlRes.ok) throw new Error('URL 목록 조회 실패');
                 const urls = await urlRes.json();
                 if (!Array.isArray(urls) || urls.length === 0) {
@@ -190,7 +190,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 // 2. 각 URL의 상세 정보(IP 등) 병합
                 const dataWithDetails = await Promise.all(urls.map(async url => {
                     try {
-                        const detailRes = await fetch(`http://localhost:5001/urls/${url.shortCode}/details`);
+                        const detailRes = await fetch(`https://hwaseon-url.onrender.com/urls/${url.shortCode}/details`);
                         if (!detailRes.ok) throw new Error();
                         const details = await detailRes.json();
                         return {
