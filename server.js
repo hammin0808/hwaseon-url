@@ -298,22 +298,27 @@ app.get('/:shortCode', (req, res, next) => {
     if (typeof ip === 'string' && ip.includes(',')) {
         ip = ip.split(',')[0].trim();
     }
+    const userAgent = req.headers['user-agent'] || '';
+    const botUserAgents = [/bot/i, /spider/i, /crawl/i, /monitor/i, /render/i, /health/i];
+    const isBot = botUserAgents.some(re => re.test(userAgent));
     const now = new Date();
-    // 중복 방문 방지: 같은 IP가 1분 이내에 방문했으면 카운트하지 않음
+    // 중복 방문 방지: 같은 IP가 10초 이내에 방문했으면 카운트하지 않음
     const lastVisit = db[shortCode].logs.find(log => log.ip === ip);
     let shouldCount = true;
     if (lastVisit) {
         const lastTime = new Date(lastVisit.time);
-        if ((now - lastTime) < 60 * 1000) {
+        if ((now - lastTime) < 10 * 1000) {
             shouldCount = false;
         }
     }
-    if (shouldCount) {
+    if (shouldCount && !isBot) {
         db[shortCode].todayVisits = (db[shortCode].todayVisits || 0) + 1;
         db[shortCode].totalVisits = (db[shortCode].totalVisits || 0) + 1;
     }
-    db[shortCode].logs.unshift({ ip, time: now.toISOString() });
-    if (db[shortCode].logs.length > 100) db[shortCode].logs = db[shortCode].logs.slice(0, 100);
+    if (!isBot) {
+        db[shortCode].logs.unshift({ ip, time: now.toISOString() });
+        if (db[shortCode].logs.length > 100) db[shortCode].logs = db[shortCode].logs.slice(0, 100);
+    }
     // DB 저장
     saveDB(db);
     // 리다이렉트

@@ -530,4 +530,10 @@
 }
 .download-excel-btn:hover {
   background-color: #217dbb;
+}
+
+.dashboard-table td,
+.dashboard-table .visits-cell,
+.dashboard-table .logs-cell {
+  text-align: center;
 } 
