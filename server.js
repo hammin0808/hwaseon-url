@@ -3,9 +3,10 @@ const fs = require('fs');
 const cors = require('cors');
 const path = require('path');
 const cron = require('node-cron');
-const bcrypt = require('bcrypt');
+const bcrypt = require('bcryptjs');
 const session = require('express-session');
 require('dotenv').config(); // 환경 변수 로드
+
 
 const app = express();
 const PORT = process.env.PORT || 5001;

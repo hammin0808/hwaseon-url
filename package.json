@@ -3,14 +3,13 @@
   "version": "1.0.0",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js",
-    "postinstall": "npm rebuild bcrypt --build-from-source"
+    "start": "node server.js"
   },
   "engines": {
-    "node": "18.x"
+    "node": ">=14.0.0"
   },
   "dependencies": {
-    "bcrypt": "^5.1.1",
+    "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
     "dotenv": "^16.5.0",
     "express": "^4.21.2",
@@ -21,5 +20,5 @@
   "keywords": [],
   "author": "hwaseon",
   "license": "ISC",
-  "description": ""
+  "description": "URL 단축 서비스"
 } 
