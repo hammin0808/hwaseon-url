@@ -38,7 +38,6 @@ app.use(session({
   saveUninitialized: true, // 초기화되지 않은 세션도 저장
   cookie: { 
     secure: false, // 개발 및 테스트를 위해 false로 설정, 프로덕션에서는 true로 변경
-    maxAge: 30 * 24 * 60 * 60 * 1000,  // 쿠키 유효기간 30일로 연장
     httpOnly: true,
     path: '/',
     sameSite: 'lax' // 일관성을 위해 항상 lax 사용
