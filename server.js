@@ -31,17 +31,17 @@ app.use(session({
   secret: process.env.SESSION_SECRET || 'hwaseon-url-shortener-secret',
   store: new FileStore({
     path: './sessions',
-    ttl: 86400 * 30, // 30일 (초 단위)
+    ttl: 86400, // 1일 (초 단위)
     retries: 0
   }),
-  resave: true, // 세션 변경사항 없어도 저장
-  saveUninitialized: true, // 초기화되지 않은 세션도 저장
+  resave: false,
+  saveUninitialized: false,
   cookie: { 
-    secure: false, // 개발 및 테스트를 위해 false로 설정, 프로덕션에서는 true로 변경
+    secure: process.env.NODE_ENV === 'production', // 프로덕션에서만 secure 쿠키 사용
+    maxAge: 30 * 24 * 60 * 60 * 1000,  // 쿠키 유효기간 30일로 연장
     httpOnly: true,
     path: '/',
-    sameSite: 'lax' // 일관성을 위해 항상 lax 사용
-  } sameSite: 'lax' // 일관성을 위해 항상 lax 사용
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax' // 프로덕션에서는 cross-site 요청도 허용
   }
 }));
 
@@ -111,24 +111,25 @@ app.get('/dashboard.html', (req, res) => {
     res.redirect('/login');
   }
 });
+
 // 관리자 비밀번호 검증
 async function verifyAdminPassword(password) {
     // 관리자 비밀번호 상수
     const ADMIN_PASSWORD = "hwaseon@00";
     return password === ADMIN_PASSWORD;
-}   return password === ADMIN_PASSWORD;
 }
 
 // 관리자 페이지
+app.get('/admin', (req, res) => {
   if (req.session.user && req.session.user.isAdmin) {
     res.sendFile(path.join(__dirname, 'public', 'admin.html'));
   } else {
     res.redirect('/login');
-  } res.redirect('/login');
   }
 });
 
 // 관리자 로그인 API
+app.post('/api/admin/login', async (req, res) => {
   try {
     const { password } = req.body;
     
@@ -277,7 +278,6 @@ app.get('/api/admin/auth', (req, res) => {
   if (req.session.user && req.session.user.isAdmin) {
     res.json({ success: true, isAdmin: true });
   } else {
-    res.json({ success: false, isAdmin: false });
     res.json({ success: false, isAdmin: false });
   }
 });
