@@ -51,12 +51,13 @@
       display: flex;
       gap: 10px;
       align-items: center;
-      height: 36px;
+      justify-content: center;
     }
     
     .dashboard-btn, .logout-btn {
-      padding: 8px 16px;
-      background-color: rgba(255, 255, 255, 0.2);
+      padding: 0;
+      width: 100px;
+      height: 36px;
       color: white;
       border: none;
       border-radius: 6px;
@@ -65,12 +66,19 @@
       font-weight: 500;
       font-size: 14px;
       text-decoration: none;
-      display: inline-flex;
+      display: flex;
       align-items: center;
       justify-content: center;
-      height: 36px;
       box-sizing: border-box;
-      line-height: 1;
+      margin: 0;
+    }
+    
+    .dashboard-btn {
+      background-color: rgba(255, 255, 255, 0.2);
+    }
+    
+    .logout-btn {
+      background-color: rgba(255, 255, 255, 0.2);
     }
     
     .dashboard-btn:hover, .logout-btn:hover {
@@ -292,7 +300,7 @@
     <div class="admin-header">
       <h1>관리자 페이지</h1>
       <div class="header-buttons">
-        <a href="/dashboard" class="dashboard-btn">대시보드</a>
+        <button id="dashboardBtn" class="dashboard-btn">대시보드</button>
         <button id="logoutBtn" class="logout-btn">로그아웃</button>
       </div>
     </div>
@@ -341,6 +349,7 @@
       const createUserMessage = document.getElementById('createUserMessage');
       const usersTableBody = document.getElementById('usersTableBody');
       const logoutBtn = document.getElementById('logoutBtn');
+      const dashboardBtn = document.getElementById('dashboardBtn');
       
       // 관리자 로그인 확인
       checkAdminAuth();
@@ -357,6 +366,11 @@
         input.addEventListener('blur', function() {
           this.parentElement.classList.remove('focused');
         });
+      });
+      
+      // 대시보드 버튼
+      dashboardBtn.addEventListener('click', function() {
+        window.location.href = '/dashboard';
       });
       
       // 로그아웃 버튼
