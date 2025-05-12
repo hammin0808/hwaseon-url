@@ -154,8 +154,8 @@ function deleteUrl(shortCode) {
 
 // 상세 정보 표시
 function showDetails(shortCode) {
-    // 로컬 서버 URL만 사용
-    const baseUrl = 'http://localhost:5001';
+    // 현재 도메인 기반으로 설정
+    const baseUrl = window.location.origin;
         
     fetch(`${baseUrl}/urls/${shortCode}/details`, {
         credentials: 'include' // 세션 쿠키 포함
@@ -252,8 +252,8 @@ document.addEventListener('DOMContentLoaded', function() {
         deleteAllBtn.addEventListener('click', async function() {
             if (!confirm('모든 URL을 삭제하시겠습니까?')) return;
             try {
-                // 로컬 서버 URL만 사용
-                const baseUrl = 'http://localhost:5001';
+                // 현재 도메인 기반으로 설정
+                const baseUrl = window.location.origin;
                     
                 const response = await fetch(`${baseUrl}/delete-all`, { 
                     method: 'DELETE',
@@ -273,8 +273,8 @@ document.addEventListener('DOMContentLoaded', function() {
     if (downloadExcelBtn) {
         downloadExcelBtn.addEventListener('click', async function() {
             try {
-                // 로컬 서버 URL만 사용
-                const baseUrl = 'http://localhost:5001';
+                // 현재 도메인 기반으로 설정
+                const baseUrl = window.location.origin;
                     
                 // 1. 전체 URL 목록 가져오기
                 const urlRes = await fetch(`${baseUrl}/urls`, {
