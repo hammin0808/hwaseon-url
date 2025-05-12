@@ -5,6 +5,7 @@ const path = require('path');
 const cron = require('node-cron');
 const bcrypt = require('bcryptjs');
 const session = require('express-session');
+const FileStore = require('session-file-store')(session);
 require('dotenv').config(); // 환경 변수 로드
 
 
@@ -28,14 +29,19 @@ app.use(cors({
 app.use(session({
   name: 'hwaseon.sid',
   secret: process.env.SESSION_SECRET || 'hwaseon-url-shortener-secret',
-  resave: false,
-  saveUninitialized: false,
+  store: new FileStore({
+    path: './sessions',
+    ttl: 86400 * 30, // 30일 (초 단위)
+    retries: 0
+  }),
+  resave: true, // 세션 변경사항 없어도 저장
+  saveUninitialized: true, // 초기화되지 않은 세션도 저장
   cookie: { 
-    secure: process.env.NODE_ENV === 'production', // 프로덕션에서만 secure 쿠키 사용
+    secure: false, // 개발 및 테스트를 위해 false로 설정, 프로덕션에서는 true로 변경
     maxAge: 30 * 24 * 60 * 60 * 1000,  // 쿠키 유효기간 30일로 연장
     httpOnly: true,
     path: '/',
-    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax' // 프로덕션에서는 cross-site 요청도 허용
+    sameSite: 'lax' // 일관성을 위해 항상 lax 사용
   }
 }));
 

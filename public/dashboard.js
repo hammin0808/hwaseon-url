@@ -245,7 +245,9 @@ function showDetails(shortCode) {
 
 // 페이지 로드 시 URL 목록 로드
 document.addEventListener('DOMContentLoaded', function() {
-    loadUrls();
+    // 로그인 상태 확인
+    checkLoginStatus();
+    
     // 전체 삭제 버튼 이벤트 리스너
     const deleteAllBtn = document.getElementById('deleteAllBtn');
     if (deleteAllBtn) {
@@ -404,4 +406,46 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     }
-}); 
+});
+
+// 로그인 상태 확인 함수
+function checkLoginStatus() {
+    const baseUrl = window.location.origin;
+    
+    console.log('로그인 상태 확인 중...');
+    
+    fetch(`${baseUrl}/api/me`, {
+        method: 'GET',
+        credentials: 'include', // 세션 쿠키 포함
+        headers: {
+            'Cache-Control': 'no-cache',
+            'Pragma': 'no-cache'
+        }
+    })
+    .then(response => {
+        if (!response.ok) {
+            if (response.status === 401) {
+                console.error('인증되지 않음, 로그인 페이지로 이동');
+                window.location.href = '/login';
+                return null;
+            }
+            throw new Error('서버 응답 오류');
+        }
+        return response.json();
+    })
+    .then(data => {
+        if (data && data.success && data.user) {
+            console.log('인증된 사용자:', data.user.username);
+            // 로그인 성공, URL 목록 로드
+            loadUrls();
+        } else if (data !== null) {
+            console.error('사용자 정보가 없음, 로그인 페이지로 이동');
+            window.location.href = '/login';
+        }
+    })
+    .catch(error => {
+        console.error('로그인 상태 확인 오류:', error);
+        // 오류 발생 시도 로그인 페이지로 이동
+        window.location.href = '/login';
+    });
+} 

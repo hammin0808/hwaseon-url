@@ -276,8 +276,11 @@
           console.log('로그인 응답 데이터:', data);
           if (data.success) {
             console.log('로그인 성공, 대시보드로 이동');
-            // 로그인 성공 시 대시보드로 이동
-            window.location.href = '/dashboard';
+            // 로그인 성공 시 페이지 새로고침 후 대시보드로 이동
+            localStorage.setItem('loginSuccess', 'true');
+            setTimeout(() => {
+              window.location.href = '/dashboard';
+            }, 500); // 잠시 딜레이를 주어 세션이 저장되도록 함
           } else {
             showError(data.message || '로그인에 실패했습니다.');
             userLoginBtn.disabled = false;
@@ -324,8 +327,11 @@
           console.log('관리자 로그인 응답 데이터:', data);
           if (data.success) {
             console.log('관리자 로그인 성공, 관리자 페이지로 이동');
-            // 관리자 로그인 성공 시 관리자 페이지로 이동
-            window.location.href = '/admin';
+            // 관리자 로그인 성공 시 로컬 스토리지에 성공 표시
+            localStorage.setItem('adminLoginSuccess', 'true');
+            setTimeout(() => {
+              window.location.href = '/admin';
+            }, 500); // 잠시 딜레이를 주어 세션이 저장되도록 함
           } else {
             showError(data.message || '관리자 로그인에 실패했습니다.');
             adminLoginBtn.disabled = false;
