@@ -17,38 +17,30 @@ const USERS_FILE = './users.json';
 
 // CORS 설정
 app.use(cors({
-  origin: process.env.NODE_ENV === 'production' 
-    ? [process.env.DOMAIN || 'https://hwaseon-url.onrender.com', 'https://hwaseon-url.com'] 
-    : ['http://localhost:5001', 'http://127.0.0.1:5001'],
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-  credentials: true
+    origin: process.env.NODE_ENV === 'production' 
+        ? ['https://hwaseon-url.onrender.com', 'https://hwaseon-url.com'] 
+        : ['http://localhost:5001'],
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization']
 }));
+
+// body parser 설정
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
 // 세션 설정
 app.use(session({
     secret: 'hwaseon-secret-key',
     resave: false,
     saveUninitialized: false,
-    store: new FileStore({
-        path: './sessions',
-        ttl: 86400, // 1일 (초 단위)
-        retries: 0
-    }),
     cookie: {
-        secure: false, // HTTPS를 사용하지 않는 경우 false로 설정
         httpOnly: true,
+        secure: false,
         maxAge: 24 * 60 * 60 * 1000, // 24시간
-        path: '/',
         sameSite: 'lax'
     }
 }));
-
-// OPTIONS 요청에 대한 처리
-app.options('*', cors());
-
-app.use(express.json());
-app.use(express.urlencoded({ extended: true })); // 추가: URL 인코딩 처리
 
 // 정적 파일 제공 설정
 app.use(express.static(path.join(__dirname, 'public')));
@@ -57,9 +49,8 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.use((req, res, next) => {
     console.log('Session Debug:', {
         sessionID: req.sessionID,
-        session: req.session,
         user: req.session.user,
-        cookies: req.cookies
+        path: req.path
     });
     next();
 });
@@ -78,7 +69,11 @@ const requireLogin = (req, res, next) => {
 // 인증 관련 라우트
 // 로그인 페이지
 app.get('/login', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'login.html'));
+    // 이미 로그인된 경우 대시보드로 리다이렉트
+    if (req.session.user) {
+        return res.redirect('/dashboard');
+    }
+    res.sendFile(path.join(__dirname, 'public', 'login.html'));
 });
 
 // 회원가입 페이지
@@ -186,69 +181,70 @@ app.post('/api/admin/login', async (req, res) => {
 
 // 사용자 로그인 API
 app.post('/api/login', (req, res) => {
-    try {
-        const { username, password } = req.body;
-        
-        if (!username || !password) {
-            return res.status(400).json({ 
-                success: false, 
-                message: '아이디와 비밀번호를 모두 입력해주세요.' 
-            });
-        }
-        
-        console.log(`로그인 시도: username=${username}`);
-        
-        // hwaseonad 계정은 별도 처리
-        if (username === 'hwaseonad' && password === 'hwaseon@00') {
-            const adminUser = {
-                id: 'admin',
-                username: 'hwaseonad',
-                email: 'gt.min@hawseon.com',
-                isAdmin: true
-            };
-            
-            req.session.user = adminUser;
-            req.session.save((err) => {
-                if (err) {
-                    console.error('세션 저장 오류:', err);
-                    return res.status(500).json({ 
-                        success: false, 
-                        message: '로그인 처리 중 오류가 발생했습니다.' 
-                    });
-                }
-                console.log('관리자 로그인 성공:', adminUser.username);
-                res.json({ success: true, user: adminUser });
-            });
-            return;
-        }
-        
-        // 일반 사용자는 현재 지원하지 않음
-        res.status(401).json({ 
+    const { username, password } = req.body;
+    
+    console.log('로그인 시도:', { username, sessionID: req.sessionID });
+    
+    if (!username || !password) {
+        return res.status(400).json({ 
             success: false, 
-            message: '아이디 또는 비밀번호가 일치하지 않습니다.' 
-        });
-        
-    } catch (error) {
-        console.error('Login error:', error);
-        res.status(500).json({ 
-            success: false, 
-            message: '서버 오류가 발생했습니다.' 
+            message: '아이디와 비밀번호를 모두 입력해주세요.' 
         });
     }
+    
+    // hwaseonad 계정 처리
+    if (username === 'hwaseonad' && password === 'hwaseon@00') {
+        const adminUser = {
+            id: 'admin',
+            username: 'hwaseonad',
+            email: 'gt.min@hawseon.com',
+            isAdmin: true
+        };
+        
+        req.session.user = adminUser;
+        
+        console.log('관리자 로그인 성공:', {
+            username: adminUser.username,
+            sessionID: req.sessionID
+        });
+        
+        return res.json({ 
+            success: true, 
+            user: adminUser,
+            redirectTo: '/admin'
+        });
+    }
+    
+    return res.status(401).json({ 
+        success: false, 
+        message: '아이디 또는 비밀번호가 일치하지 않습니다.' 
+    });
 });
 
 // 로그아웃 API
 app.post('/api/logout', (req, res) => {
-  req.session.destroy(err => {
-    if (err) {
-      return res.status(500).json({ success: false, message: '로그아웃 처리 중 오류가 발생했습니다.' });
-    }
-    res.json({ success: true });
-  });
+    const username = req.session.user ? req.session.user.username : 'unknown';
+    console.log('로그아웃:', { username, sessionID: req.sessionID });
+    
+    req.session.destroy((err) => {
+        if (err) {
+            console.error('로그아웃 에러:', err);
+            return res.status(500).json({ 
+                success: false, 
+                message: '로그아웃 처리 중 오류가 발생했습니다.' 
+            });
+        }
+        res.json({ success: true, message: '로그아웃되었습니다.' });
+    });
 });
 
 // 현재 로그인한 사용자 정보 API
 app.get('/api/me', (req, res) => {
+    console.log('사용자 정보 요청:', {
+        sessionID: req.sessionID,
+        user: req.session.user ? req.session.user.username : 'none'
+    });
+    
     if (req.session.user) {
         res.json({ 
             success: true, 
