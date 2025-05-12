@@ -6,7 +6,6 @@ const cron = require('node-cron');
 const bcrypt = require('bcryptjs');
 const session = require('express-session');
 const FileStore = require('session-file-store')(session);
-const MongoStore = require('connect-mongo');
 require('dotenv').config(); // 환경 변수 로드
 
 
@@ -15,7 +14,6 @@ const PORT = process.env.PORT || 5001;
 const DB_FILE = './db.json';
 const LAST_CRAWLED_FILE = './last_crawled.json';
 const USERS_FILE = './users.json';
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/hwaseon-url';
 
 // CORS 설정
 app.use(cors({
@@ -29,19 +27,22 @@ app.use(cors({
 
 // 세션 설정
 app.use(session({
-    secret: 'hwaseon-secret-key',
-    resave: false,
-    saveUninitialized: false,
-    cookie: {
-        httpOnly: true,
-        secure: false, // HTTPS를 사용하지 않는 경우 false
-        maxAge: 24 * 60 * 60 * 1000 // 24시간
-    },
-    store: new MongoStore({
-        mongoUrl: MONGODB_URI,
-        collection: 'sessions',
-        ttl: 24 * 60 * 60 // 24시간
-    })
+  name: 'hwaseon.sid',
+  secret: process.env.SESSION_SECRET || 'hwaseon-url-shortener-secret',
+  store: new FileStore({
+    path: './sessions',
+    ttl: 86400 * 30, // 30일 (초 단위)
+    retries: 0
+  }),
+  resave: true, // 세션 변경사항 없어도 저장
+  saveUninitialized: true, // 초기화되지 않은 세션도 저장
+  cookie: { 
+    secure: false, // 개발 및 테스트를 위해 false로 설정, 프로덕션에서는 true로 변경
+    httpOnly: true,
+    path: '/',
+    sameSite: 'lax' // 일관성을 위해 항상 lax 사용
+  } sameSite: 'lax' // 일관성을 위해 항상 lax 사용
+  }
 }));
 
 // OPTIONS 요청에 대한 처리
@@ -110,216 +111,144 @@ app.get('/dashboard.html', (req, res) => {
     res.redirect('/login');
   }
 });
-
-// 관리자 인증 미들웨어
-const adminAuth = (req, res, next) => {
-    if (!req.session.user || !req.session.user.isAdmin) {
-        return res.status(401).json({ 
-            success: false, 
-            message: '관리자 권한이 필요합니다.' 
-        });
-    }
-    next();
-};
+// 관리자 비밀번호 검증
+async function verifyAdminPassword(password) {
+    // 관리자 비밀번호 상수
+    const ADMIN_PASSWORD = "hwaseon@00";
+    return password === ADMIN_PASSWORD;
+}   return password === ADMIN_PASSWORD;
+}
 
 // 관리자 페이지
-app.get('/admin', (req, res) => {
-    if (req.session.user && req.session.user.isAdmin) {
-        res.sendFile(path.join(__dirname, 'public', 'admin.html'));
-    } else {
-        res.redirect('/login');
-    }
-});
-
-// 관리자 권한 확인 API
-app.get('/api/admin/auth', (req, res) => {
-    if (req.session.user && req.session.user.isAdmin) {
-        res.json({ success: true, isAdmin: true });
-    } else {
-        res.json({ success: false, isAdmin: false });
-    }
+  if (req.session.user && req.session.user.isAdmin) {
+    res.sendFile(path.join(__dirname, 'public', 'admin.html'));
+  } else {
+    res.redirect('/login');
+  } res.redirect('/login');
+  }
 });
 
 // 관리자 로그인 API
-app.post('/api/admin/login', async (req, res) => {
-    try {
-        const { password } = req.body;
-        
-        if (!password) {
-            return res.status(400).json({ 
-                success: false, 
-                message: '비밀번호를 입력해주세요.' 
-            });
-        }
-        
-        console.log(`관리자 로그인 시도: session_id=${req.session.id}`);
-        
-        // 관리자 비밀번호 검증
-        const isValidPassword = password === "hwaseon@00";
-        
-        if (!isValidPassword) {
-            return res.status(401).json({ 
-                success: false, 
-                message: '관리자 비밀번호가 일치하지 않습니다.' 
-            });
-        }
-        
-        // 관리자 사용자 정보
-        const adminUser = {
-            id: 'admin',
-            username: 'hwaseonad',
-            email: 'gt.min@hawseon.com',
-            isAdmin: true
-        };
-        
-        // 세션 초기화 후 관리자 정보 저장
-        req.session.regenerate((err) => {
-            if (err) {
-                console.error('세션 재생성 오류:', err);
-                return res.status(500).json({ 
-                    success: false, 
-                    message: '세션 생성 중 오류가 발생했습니다.' 
-                });
-            }
-            
-            req.session.user = adminUser;
-            req.session.save((err) => {
-                if (err) {
-                    console.error('세션 저장 오류:', err);
-                    return res.status(500).json({ 
-                        success: false, 
-                        message: '세션 저장 중 오류가 발생했습니다.' 
-                    });
-                }
-                
-                console.log('관리자 로그인 성공:', adminUser.username, req.session.id);
-                res.json({ success: true, user: adminUser });
-            });
-        });
-        
-    } catch (error) {
-        console.error('Admin login error:', error);
-        res.status(500).json({ 
-            success: false, 
-            message: '서버 오류가 발생했습니다.' 
-        });
+  try {
+    const { password } = req.body;
+    
+    if (!password) {
+      return res.status(400).json({ success: false, message: '비밀번호를 입력해주세요.' });
     }
+    
+    console.log(`관리자 로그인 시도: session_id=${req.session.id}`);
+    
+    // 관리자 비밀번호 검증
+    const isValidPassword = password === "hwaseon@00";
+    
+    if (!isValidPassword) {
+      return res.status(401).json({ success: false, message: '관리자 비밀번호가 일치하지 않습니다.' });
+    }
+    
+    // 관리자 사용자 정보 (기본 관리자)
+    const adminUser = {
+      id: 'admin',
+      username: 'hwaseonad',
+      email: 'gt.min@hawseon.com',
+      isAdmin: true
+    };
+    
+    // 세션에 사용자 정보 저장
+    req.session.user = adminUser;
+    
+    // 세션 저장 확인
+    req.session.save(err => {
+      if (err) {
+        console.error('세션 저장 오류:', err);
+        return res.status(500).json({ success: false, message: '세션 저장 중 오류가 발생했습니다.' });
+      }
+      
+      console.log('관리자 로그인 성공:', adminUser.username, req.session.id);
+      res.json({ success: true, user: adminUser });
+    });
+  } catch (error) {
+    console.error('Admin login error:', error);
+    res.status(500).json({ success: false, message: '서버 오류가 발생했습니다.' });
+  }
 });
 
-// 사용자 로그인 API
+// 사용자 로그인 API (기존 /api/login 확장)
 app.post('/api/login', async (req, res) => {
-    try {
-        const { username, password } = req.body;
-        
-        if (!username || !password) {
-            return res.status(400).json({ 
-                success: false, 
-                message: '아이디와 비밀번호를 모두 입력해주세요.' 
-            });
-        }
-        
-        console.log(`로그인 시도: username=${username}, session_id=${req.session.id}`);
-        
-        // hwaseonad 계정은 별도 처리
-        if (username === 'hwaseonad') {
-            if (password === 'hwaseon@00') {
-                const adminUser = {
-                    id: 'admin',
-                    username: 'hwaseonad',
-                    email: 'gt.min@hawseon.com',
-                    isAdmin: true
-                };
-                
-                // 세션 초기화 후 관리자 정보 저장
-                req.session.regenerate((err) => {
-                    if (err) {
-                        console.error('세션 재생성 오류:', err);
-                        return res.status(500).json({ 
-                            success: false, 
-                            message: '세션 생성 중 오류가 발생했습니다.' 
-                        });
-                    }
-                    
-                    req.session.user = adminUser;
-                    req.session.save((err) => {
-                        if (err) {
-                            console.error('세션 저장 오류:', err);
-                            return res.status(500).json({ 
-                                success: false, 
-                                message: '세션 저장 중 오류가 발생했습니다.' 
-                            });
-                        }
-                        
-                        console.log('관리자 로그인 성공:', adminUser.username, req.session.id);
-                        res.json({ success: true, user: adminUser });
-                    });
-                });
-                return;
-            } else {
-                return res.status(401).json({ 
-                    success: false, 
-                    message: '아이디 또는 비밀번호가 일치하지 않습니다.' 
-                });
-            }
-        }
-        
-        // 일반 사용자 로그인 처리
-        const user = await User.findOne({ username });
-        
-        if (!user) {
-            return res.status(401).json({ 
-                success: false, 
-                message: '아이디 또는 비밀번호가 일치하지 않습니다.' 
-            });
-        }
-        
-        const isValidPassword = await bcrypt.compare(password, user.password);
-        
-        if (!isValidPassword) {
-            return res.status(401).json({ 
-                success: false, 
-                message: '아이디 또는 비밀번호가 일치하지 않습니다.' 
-            });
-        }
-        
-        // 세션 초기화 후 사용자 정보 저장
-        req.session.regenerate((err) => {
-            if (err) {
-                console.error('세션 재생성 오류:', err);
-                return res.status(500).json({ 
-                    success: false, 
-                    message: '세션 생성 중 오류가 발생했습니다.' 
-                });
-            }
-            
-            req.session.user = {
-                id: user._id,
-                username: user.username,
-                email: user.email,
-                isAdmin: false
-            };
-            
-            req.session.save((err) => {
-                if (err) {
-                    console.error('세션 저장 오류:', err);
-                    return res.status(500).json({ 
-                        success: false, 
-                        message: '세션 저장 중 오류가 발생했습니다.' 
-                    });
-                }
-                
-                console.log('로그인 성공:', user.username, req.session.id);
-                res.json({ success: true, user: req.session.user });
-            });
-        });
-        
-    } catch (error) {
-        console.error('Login error:', error);
-        res.status(500).json({ 
-            success: false, 
-            message: '서버 오류가 발생했습니다.' 
-        });
+  try {
+    const { username, password } = req.body;
+    
+    if (!username || !password) {
+      return res.status(400).json({ success: false, message: '아이디와 비밀번호를 모두 입력해주세요.' });
     }
+    
+    console.log(`로그인 시도: username=${username}, session_id=${req.session.id}`);
+    
+    // hwaseonad 계정은 별도 처리
+    if (username === 'hwaseonad') {
+      if (password === 'hwaseon@00') {
+        const adminUser = {
+          id: 'admin',
+          username: 'hwaseonad',
+          email: 'gt.min@hawseon.com',
+          isAdmin: true
+        };
+        
+        req.session.user = adminUser;
+        
+        // 세션 저장 확인
+        req.session.save(err => {
+          if (err) {
+            console.error('세션 저장 오류:', err);
+            return res.status(500).json({ success: false, message: '세션 저장 중 오류가 발생했습니다.' });
+          }
+          
+          console.log('관리자 로그인 성공:', adminUser.username, req.session.id);
+          return res.json({ success: true, user: adminUser });
+        });
+      } else {
+        return res.status(401).json({ success: false, message: '아이디 또는 비밀번호가 일치하지 않습니다.' });
+      }
+    } else {
+      // 일반 사용자 데이터 로드
+      const userData = loadUsers();
+      const user = userData.users.find(u => u.username === username);
+      
+      if (!user) {
+        return res.status(401).json({ success: false, message: '아이디 또는 비밀번호가 일치하지 않습니다.' });
+      }
+      
+      // 비밀번호 검증
+      const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
+      
+      if (!isPasswordValid) {
+        return res.status(401).json({ success: false, message: '아이디 또는 비밀번호가 일치하지 않습니다.' });
+      }
+      
+      // 세션에 사용자 정보 저장 (비밀번호 해시 제외)
+      const userInfo = {
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        isAdmin: user.isAdmin
+      };
+      
+      req.session.user = userInfo;
+      
+      // 세션 저장 확인
+      req.session.save(err => {
+        if (err) {
+          console.error('세션 저장 오류:', err);
+          return res.status(500).json({ success: false, message: '세션 저장 중 오류가 발생했습니다.' });
+        }
+        
+        console.log('일반 사용자 로그인 성공:', userInfo.username, req.session.id);
+        res.json({ success: true, user: userInfo });
+      });
+    }
+  } catch (error) {
+    console.error('Login error:', error);
+    res.status(500).json({ success: false, message: '서버 오류가 발생했습니다.' });
+  }
 });
 
 // 로그아웃 API
@@ -340,6 +269,16 @@ app.get('/api/me', (req, res) => {
     res.json({ success: true, user: req.session.user });
   } else {
     res.status(401).json({ success: false, message: '로그인이 필요합니다.' });
+  }
+});
+
+// 관리자 권한 확인 API
+app.get('/api/admin/auth', (req, res) => {
+  if (req.session.user && req.session.user.isAdmin) {
+    res.json({ success: true, isAdmin: true });
+  } else {
+    res.json({ success: false, isAdmin: false });
+    res.json({ success: false, isAdmin: false });
   }
 });
 
