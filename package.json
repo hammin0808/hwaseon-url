@@ -3,10 +3,11 @@
   "version": "1.0.0",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "postinstall": "npm rebuild bcrypt --build-from-source"
   },
   "engines": {
-    "node": ">=14.0.0"
+    "node": "18.x"
   },
   "dependencies": {
     "bcrypt": "^5.1.1",
@@ -21,4 +22,4 @@
   "author": "hwaseon",
   "license": "ISC",
   "description": ""
-}
+} 
