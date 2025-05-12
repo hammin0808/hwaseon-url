@@ -3,27 +3,66 @@ const fs = require('fs');
 const cors = require('cors');
 const path = require('path');
 const cron = require('node-cron');
+const bcrypt = require('bcrypt');
+const session = require('express-session');
+require('dotenv').config(); // 환경 변수 로드
 
 const app = express();
-const PORT = 5001;
+const PORT = process.env.PORT || 5001;
 const DB_FILE = './db.json';
 const LAST_CRAWLED_FILE = './last_crawled.json';
+const USERS_FILE = './users.json';
 
 // CORS 설정
 app.use(cors({
-  origin: '*',
+  origin: process.env.NODE_ENV === 'production' 
+    ? [process.env.DOMAIN || 'https://hwaseon-url.onrender.com', 'https://hwaseon-url.com'] 
+    : ['http://localhost:5001', 'http://127.0.0.1:5001'],
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true
+}));
+
+// 세션 설정
+app.use(session({
+  name: 'hwaseon.sid',
+  secret: process.env.SESSION_SECRET || 'hwaseon-url-shortener-secret',
+  resave: false,
+  saveUninitialized: false,
+  cookie: { 
+    secure: process.env.NODE_ENV === 'production', // 프로덕션에서만 secure 쿠키 사용
+    maxAge: 30 * 24 * 60 * 60 * 1000,  // 쿠키 유효기간 30일로 연장
+    httpOnly: true,
+    path: '/',
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax' // 프로덕션에서는 cross-site 요청도 허용
+  }
 }));
 
 // OPTIONS 요청에 대한 처리
 app.options('*', cors());
 
 app.use(express.json());
+app.use(express.urlencoded({ extended: true })); // 추가: URL 인코딩 처리
 
 // 정적 파일 제공 설정
 app.use(express.static(path.join(__dirname, 'public')));
+
+// 세션 디버깅 미들웨어 추가
+app.use((req, res, next) => {
+  console.log('세션 정보:', req.session.id, req.session.user ? req.session.user.username : 'No user');
+  next();
+});
+
+// 인증 관련 라우트
+// 로그인 페이지
+app.get('/login', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'login.html'));
+});
+
+// 회원가입 페이지
+app.get('/signup', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'signup.html'));
+});
 
 // 메인 페이지
 app.get('/', (req, res) => {
@@ -40,15 +79,391 @@ app.get('/multiple.html', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'multiple.html'));
 });
 
-// 대시보드 페이지
+// 대시보드 페이지 - 인증 필요
 app.get('/dashboard', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'dashboard.html'));
+  console.log('대시보드 접근 시도:', req.session.id, req.session.user ? req.session.user.username : 'No user');
+  
+  if (req.session.user) {
+    console.log('인증된 사용자가 대시보드 접근:', req.session.user.username);
+    res.sendFile(path.join(__dirname, 'public', 'dashboard.html'));
+  } else {
+    console.log('인증되지 않은 사용자가 대시보드 접근 시도');
+    res.redirect('/login');
+  }
 });
 
 // 대시보드 페이지 (기존 경로도 유지)
 app.get('/dashboard.html', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'dashboard.html'));
+  console.log('dashboard.html 접근 시도:', req.session.id, req.session.user ? req.session.user.username : 'No user');
+  
+  if (req.session.user) {
+    console.log('인증된 사용자가 dashboard.html 접근:', req.session.user.username);
+    res.sendFile(path.join(__dirname, 'public', 'dashboard.html'));
+  } else {
+    console.log('인증되지 않은 사용자가 dashboard.html 접근 시도');
+    res.redirect('/login');
+  }
 });
+
+// 관리자 비밀번호 검증
+async function verifyAdminPassword(password) {
+    // 관리자 비밀번호 상수
+    const ADMIN_PASSWORD = "hwaseon@00";
+    return password === ADMIN_PASSWORD;
+}
+
+// 관리자 페이지
+app.get('/admin', (req, res) => {
+  if (req.session.user && req.session.user.isAdmin) {
+    res.sendFile(path.join(__dirname, 'public', 'admin.html'));
+  } else {
+    res.redirect('/login');
+  }
+});
+
+// 관리자 로그인 API
+app.post('/api/admin/login', async (req, res) => {
+  try {
+    const { password } = req.body;
+    
+    if (!password) {
+      return res.status(400).json({ success: false, message: '비밀번호를 입력해주세요.' });
+    }
+    
+    console.log(`관리자 로그인 시도: session_id=${req.session.id}`);
+    
+    // 관리자 비밀번호 검증
+    const isValidPassword = password === "hwaseon@00";
+    
+    if (!isValidPassword) {
+      return res.status(401).json({ success: false, message: '관리자 비밀번호가 일치하지 않습니다.' });
+    }
+    
+    // 관리자 사용자 정보 (기본 관리자)
+    const adminUser = {
+      id: 'admin',
+      username: 'hwaseonad',
+      email: 'gt.min@hawseon.com',
+      isAdmin: true
+    };
+    
+    // 세션에 사용자 정보 저장
+    req.session.user = adminUser;
+    
+    // 세션 저장 확인
+    req.session.save(err => {
+      if (err) {
+        console.error('세션 저장 오류:', err);
+        return res.status(500).json({ success: false, message: '세션 저장 중 오류가 발생했습니다.' });
+      }
+      
+      console.log('관리자 로그인 성공:', adminUser.username, req.session.id);
+      res.json({ success: true, user: adminUser });
+    });
+  } catch (error) {
+    console.error('Admin login error:', error);
+    res.status(500).json({ success: false, message: '서버 오류가 발생했습니다.' });
+  }
+});
+
+// 사용자 로그인 API (기존 /api/login 확장)
+app.post('/api/login', async (req, res) => {
+  try {
+    const { username, password } = req.body;
+    
+    if (!username || !password) {
+      return res.status(400).json({ success: false, message: '아이디와 비밀번호를 모두 입력해주세요.' });
+    }
+    
+    console.log(`로그인 시도: username=${username}, session_id=${req.session.id}`);
+    
+    // hwaseonad 계정은 별도 처리
+    if (username === 'hwaseonad') {
+      if (password === 'hwaseon@00') {
+        const adminUser = {
+          id: 'admin',
+          username: 'hwaseonad',
+          email: 'gt.min@hawseon.com',
+          isAdmin: true
+        };
+        
+        req.session.user = adminUser;
+        
+        // 세션 저장 확인
+        req.session.save(err => {
+          if (err) {
+            console.error('세션 저장 오류:', err);
+            return res.status(500).json({ success: false, message: '세션 저장 중 오류가 발생했습니다.' });
+          }
+          
+          console.log('관리자 로그인 성공:', adminUser.username, req.session.id);
+          return res.json({ success: true, user: adminUser });
+        });
+      } else {
+        return res.status(401).json({ success: false, message: '아이디 또는 비밀번호가 일치하지 않습니다.' });
+      }
+    } else {
+      // 일반 사용자 데이터 로드
+      const userData = loadUsers();
+      const user = userData.users.find(u => u.username === username);
+      
+      if (!user) {
+        return res.status(401).json({ success: false, message: '아이디 또는 비밀번호가 일치하지 않습니다.' });
+      }
+      
+      // 비밀번호 검증
+      const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
+      
+      if (!isPasswordValid) {
+        return res.status(401).json({ success: false, message: '아이디 또는 비밀번호가 일치하지 않습니다.' });
+      }
+      
+      // 세션에 사용자 정보 저장 (비밀번호 해시 제외)
+      const userInfo = {
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        isAdmin: user.isAdmin
+      };
+      
+      req.session.user = userInfo;
+      
+      // 세션 저장 확인
+      req.session.save(err => {
+        if (err) {
+          console.error('세션 저장 오류:', err);
+          return res.status(500).json({ success: false, message: '세션 저장 중 오류가 발생했습니다.' });
+        }
+        
+        console.log('일반 사용자 로그인 성공:', userInfo.username, req.session.id);
+        res.json({ success: true, user: userInfo });
+      });
+    }
+  } catch (error) {
+    console.error('Login error:', error);
+    res.status(500).json({ success: false, message: '서버 오류가 발생했습니다.' });
+  }
+});
+
+// 로그아웃 API
+app.post('/api/logout', (req, res) => {
+  req.session.destroy(err => {
+    if (err) {
+      return res.status(500).json({ success: false, message: '로그아웃 처리 중 오류가 발생했습니다.' });
+    }
+    res.json({ success: true });
+  });
+});
+
+// 현재 로그인한 사용자 정보 API
+app.get('/api/me', (req, res) => {
+  console.log('세션 확인 API 호출:', req.session.id, req.session.user ? req.session.user.username : 'No user');
+  
+  if (req.session.user) {
+    res.json({ success: true, user: req.session.user });
+  } else {
+    res.status(401).json({ success: false, message: '로그인이 필요합니다.' });
+  }
+});
+
+// 관리자 권한 확인 API
+app.get('/api/admin/auth', (req, res) => {
+  if (req.session.user && req.session.user.isAdmin) {
+    res.json({ success: true, isAdmin: true });
+  } else {
+    res.json({ success: false, isAdmin: false });
+  }
+});
+
+// 사용자 목록 조회 API (관리자 전용)
+app.get('/api/admin/users', (req, res) => {
+  // 관리자 권한 확인
+  if (!req.session.user || !req.session.user.isAdmin) {
+    return res.status(403).json({ success: false, message: '관리자 권한이 필요합니다.' });
+  }
+  
+  try {
+    const userData = loadUsers();
+    res.json({ success: true, users: userData.users });
+  } catch (error) {
+    console.error('Error loading users:', error);
+    res.status(500).json({ success: false, message: '사용자 목록을 불러오는데 실패했습니다.' });
+  }
+});
+
+// 사용자 생성 API (관리자 전용)
+app.post('/api/admin/users', async (req, res) => {
+  // 관리자 권한 확인
+  if (!req.session.user || !req.session.user.isAdmin) {
+    return res.status(403).json({ success: false, message: '관리자 권한이 필요합니다.' });
+  }
+  
+  try {
+    const { username, password, email } = req.body;
+    
+    if (!username || !password) {
+      return res.status(400).json({ success: false, message: '사용자명과 비밀번호는 필수입니다.' });
+    }
+    
+    // 사용자 데이터 로드
+    const userData = loadUsers();
+    
+    // 사용자명 중복 확인
+    if (userData.users.some(u => u.username === username)) {
+      return res.status(400).json({ success: false, message: '이미 존재하는 사용자명입니다.' });
+    }
+    
+    // 비밀번호 해시화
+    const saltRounds = 10;
+    const passwordHash = await bcrypt.hash(password, saltRounds);
+    
+    // 새 사용자 생성
+    const newUser = {
+      id: Date.now().toString(),
+      username,
+      passwordHash,
+      email: email || null,
+      isAdmin: false,
+      createdAt: new Date().toISOString()
+    };
+    
+    // 사용자 추가
+    userData.users.push(newUser);
+    
+    // 사용자 데이터 저장
+    if (!saveUsers(userData)) {
+      return res.status(500).json({ success: false, message: '사용자 저장에 실패했습니다.' });
+    }
+    
+    // 비밀번호 제외하고 응답
+    const userResponse = { ...newUser };
+    delete userResponse.passwordHash;
+    
+    res.json({ success: true, user: userResponse });
+  } catch (error) {
+    console.error('Error creating user:', error);
+    res.status(500).json({ success: false, message: '사용자 생성 중 오류가 발생했습니다.' });
+  }
+});
+
+// 사용자 삭제 API (관리자 전용)
+app.delete('/api/admin/users/:userId', (req, res) => {
+  // 관리자 권한 확인
+  if (!req.session.user || !req.session.user.isAdmin) {
+    return res.status(403).json({ success: false, message: '관리자 권한이 필요합니다.' });
+  }
+  
+  try {
+    const userId = req.params.userId;
+    
+    // 사용자 데이터 로드
+    const userData = loadUsers();
+    
+    // 삭제할 사용자 찾기
+    const userIndex = userData.users.findIndex(u => u.id === userId);
+    
+    if (userIndex === -1) {
+      return res.status(404).json({ success: false, message: '사용자를 찾을 수 없습니다.' });
+    }
+    
+    // 관리자 계정은 삭제 불가
+    if (userData.users[userIndex].isAdmin) {
+      return res.status(400).json({ success: false, message: '관리자 계정은 삭제할 수 없습니다.' });
+    }
+    
+    // 사용자 삭제
+    userData.users.splice(userIndex, 1);
+    
+    // 사용자 데이터 저장
+    if (!saveUsers(userData)) {
+      return res.status(500).json({ success: false, message: '사용자 삭제 저장에 실패했습니다.' });
+    }
+    
+    res.json({ success: true, message: '사용자가 삭제되었습니다.' });
+  } catch (error) {
+    console.error('Error deleting user:', error);
+    res.status(500).json({ success: false, message: '사용자 삭제 중 오류가 발생했습니다.' });
+  }
+});
+
+// 모든 URL 목록 조회 API
+app.get('/urls', (req, res) => {
+    const db = loadDB();
+    console.log('URLs 조회 요청:', { 
+        sessionId: req.session.id,
+        user: req.session.user ? req.session.user.username : null
+    });
+    
+    // 현재 사용자 정보 확인
+    const isAdmin = req.session.user && req.session.user.isAdmin;
+    const currentUserId = req.session.user ? req.session.user.id : null;
+    const currentUsername = req.session.user ? req.session.user.username : null;
+    
+    // URL 목록 필터링
+    const urls = Object.keys(db)
+        .filter(shortCode => {
+            // 관리자는 모든 URL 볼 수 있음
+            if (isAdmin) return true;
+            
+            // 로그인한 일반 사용자는 본인이 만든 URL만 볼 수 있음
+            if (currentUserId) {
+                return db[shortCode].userId === currentUserId;
+            }
+            
+            // 로그인하지 않은 경우 아무것도 볼 수 없음 (비회원)
+            return false;
+        })
+        .map(shortCode => {
+            // 사용자 정보 추가
+            let urlData = db[shortCode];
+            let displayUsername = '비회원';
+            
+            // URL에 사용자 정보가 저장되어 있는 경우
+            if (urlData.username) {
+                displayUsername = urlData.username;
+            }
+            
+            return {
+                shortCode: shortCode,
+                shortUrl: urlData.shortUrl,
+                longUrl: urlData.longUrl,
+                todayVisits: urlData.todayVisits || 0,
+                totalVisits: urlData.totalVisits || 0,
+                createdAt: urlData.createdAt,
+                ip: urlData.ip,
+                userId: urlData.userId,
+                username: displayUsername,
+                memo: urlData.memo || ''
+            };
+        });
+    
+    console.log(`URL 조회 결과: ${urls.length}개 URL, 사용자: ${currentUsername || '비회원'}, 관리자: ${isAdmin}`);
+    res.json(urls);
+});
+
+// 용자 데이터 저장 함수
+function saveUsers(users) {
+    try {
+        fs.writeFileSync(USERS_FILE, JSON.stringify(users, null, 2));
+        return true;
+    } catch (error) {
+        console.error('Error saving users:', error);
+        return false;
+    }
+}
+
+// 사용자 데이터 로드 함수
+function loadUsers() {
+    try {
+        if (!fs.existsSync(USERS_FILE)) {
+            return { users: [] };
+        }
+        return JSON.parse(fs.readFileSync(USERS_FILE, 'utf8'));
+    } catch (error) {
+        console.error('Error loading users:', error);
+        return { users: [] };
+    }
+}
 
 // DB 저장
 function saveDB(data) {
@@ -133,21 +548,66 @@ function getTodayMidnight() {
     return midnight.getTime();
 }
 
-// 단축 URL 생성 시 도메인 설정
-const BASE_URL = 'https://hwaseon-url.onrender.com';
+// 클라이언트의 실제 IP 주소 추출
+function getClientIp(req) {
+  // 프록시 서버, CDN 등을 통과했을 때 실제 클라이언트 IP 추출
+  let ip = req.headers['x-forwarded-for'] || 
+           req.headers['x-real-ip'] || 
+           req.connection.remoteAddress || 
+           '';
+  
+  // x-forwarded-for는 여러 IP가 콤마로 구분되어 있을 수 있음 (첫번째가 원래 클라이언트 IP)
+  if (typeof ip === 'string' && ip.includes(',')) {
+    ip = ip.split(',')[0].trim();
+  }
+  
+  // ::ffff:127.0.0.1 같은 IPv6 형태의 로컬호스트 처리
+  if (ip.includes('::ffff:')) {
+    ip = ip.substring(7);
+  }
+  
+  return ip;
+}
 
-// URL 단축 API
+// 단축 URL 생성 시 도메인 설정
+const BASE_URL = process.env.NODE_ENV === 'production'
+  ? (process.env.DOMAIN || 'https://hwaseon-url.onrender.com')
+  : `http://localhost:${PORT}`;
+
+// URL 단축 API - 사용자 정보 추가
 app.post('/shorten', (req, res) => {
     const longUrl = req.body.url;
     if (!longUrl) {
         return res.status(400).json({ error: 'URL 누락' });
     }
+    
+    // URL 유효성 검사 (간단한 형태)
+    const urlPattern = /^(https?:\/\/)?([\w.-]+)\.([a-z]{2,})(\/\S*)?$/i;
+    if (!urlPattern.test(longUrl)) {
+        return res.status(400).json({ error: '유효하지 않은 URL 형식입니다.' });
+    }
+    
+    // 세션 정보 로깅
+    console.log('URL 단축 요청 세션 정보:', {
+        sessionId: req.session.id,
+        user: req.session.user,
+        cookies: req.headers.cookie
+    });
+    
     let shortCode;
     const db = loadDB();
     do {
         shortCode = generateShortCode();
     } while (db[shortCode]);
-    const ip = req.headers['x-forwarded-for'] || req.connection.remoteAddress || '';
+    
+    const ip = getClientIp(req);
+    
+    // 사용자 정보가 있으면 추가
+    const userId = req.session.user ? req.session.user.id : null;
+    const username = req.session.user ? req.session.user.username : null;
+    
+    console.log('URL 단축 시 저장되는 사용자 정보:', { userId, username });
+    
     db[shortCode] = {
         longUrl: longUrl,
         shortUrl: `${BASE_URL}/${shortCode}`,
@@ -156,26 +616,47 @@ app.post('/shorten', (req, res) => {
         createdAt: new Date().toISOString(),
         lastReset: new Date().toISOString(),
         ip: ip,
-        logs: []
+        logs: [],
+        userId: userId,
+        username: username // 사용자 이름 저장
     };
+    
     saveDB(db);
+    
+    // 디버깅 로그 추가
+    console.log(`URL 단축 완료: ${shortCode}, 사용자: ${username || '비회원'}`);
+    
     res.json({ 
         shortUrl: db[shortCode].shortUrl,
-        shortCode: shortCode
+        shortCode: shortCode,
+        username: username // 응답에 사용자 이름 추가
     });
 });
 
-// 여러 URL 단축 API
+// 여러 URL 단축 API - 사용자 정보 추가
 app.post('/shorten-multiple', (req, res) => {
     const urls = req.body.urls;
     if (!urls || !Array.isArray(urls) || urls.length === 0) {
         return res.status(400).json({ error: 'URL 목록이 필요합니다' });
     }
 
+    // 세션 정보 로깅
+    console.log('다중 URL 단축 요청 세션 정보:', {
+        sessionId: req.session.id,
+        user: req.session.user,
+        cookies: req.headers.cookie
+    });
+
     const results = [];
     const db = loadDB();
     // 클라이언트 IP 추출 (로컬서버 포함)
-    const ip = req.headers['x-forwarded-for'] || req.connection.remoteAddress || '';
+    const ip = getClientIp(req);
+    
+    // 사용자 정보가 있으면 추가
+    const userId = req.session.user ? req.session.user.id : null;
+    const username = req.session.user ? req.session.user.username : null;
+    
+    console.log('다중 URL 단축 시 저장되는 사용자 정보:', { userId, username });
 
     for (const longUrl of urls) {
         if (!longUrl) continue;
@@ -194,19 +675,22 @@ app.post('/shorten-multiple', (req, res) => {
             totalVisits: 0,
             createdAt: new Date().toISOString(),
             lastReset: new Date().toISOString(),
-            ip: ip
+            ip: ip,
+            userId: userId,
+            username: username // 사용자 이름 저장
         };
 
         results.push({
             originalUrl: longUrl,
             shortUrl: db[shortCode].shortUrl,
-            shortCode: shortCode
+            shortCode: shortCode,
+            username: username // 결과에 사용자 이름 추가
         });
     }
 
     // DB 저장
-    fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2));
-    console.log('Created multiple URLs:', results);
+    saveDB(db);
+    console.log(`다중 URL 단축 완료: ${results.length}개, 사용자: ${username || '비회원'}`);
 
     res.json({ 
         success: true,
@@ -214,31 +698,7 @@ app.post('/shorten-multiple', (req, res) => {
     });
 });
 
-// URL 목록 조회 API
-app.get('/urls', (req, res) => {
-    try {
-        const db = loadDB();
-        if (!db || typeof db !== 'object') {
-            return res.json([]);
-        }
-        const urls = Object.entries(db).map(([shortCode, data]) => ({
-            shortCode,
-            longUrl: data.longUrl || '',
-            shortUrl: data.shortUrl || `${BASE_URL}/${shortCode}`,
-            todayVisits: data.todayVisits || 0,
-            totalVisits: data.totalVisits || 0,
-            createdAt: data.createdAt || new Date().toISOString(),
-            ip: data.ip || 'unknown',
-            logsCount: (data.logs && data.logs.length) || 0
-        }));
-        urls.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-        res.json(urls);
-    } catch (error) {
-        res.status(500).json({ error: '서버 오류가 발생했습니다.' });
-    }
-});
-
-// URL 삭제 API
+// URL 삭제 API - 본인 또는 관리자만 삭제 가능
 app.delete('/urls/:shortCode', (req, res) => {
   try {
     const { shortCode } = req.params;
@@ -246,6 +706,15 @@ app.delete('/urls/:shortCode', (req, res) => {
     
     if (!db[shortCode]) {
       return res.status(404).json({ error: 'URL을 찾을 수 없습니다' });
+    }
+    
+    // 사용자 권한 확인
+    const userId = req.session.user ? req.session.user.id : null;
+    const isAdmin = req.session.user ? req.session.user.isAdmin : false;
+    
+    // 관리자거나 본인의 URL인 경우만 삭제 허용
+    if (!isAdmin && db[shortCode].userId !== userId) {
+      return res.status(403).json({ error: '삭제 권한이 없습니다' });
     }
     
     delete db[shortCode];
@@ -294,7 +763,7 @@ app.get('/:shortCode', (req, res, next) => {
     }
     // logs 기록
     if (!db[shortCode].logs) db[shortCode].logs = [];
-    let ip = req.headers['x-forwarded-for'] || req.connection.remoteAddress || '';
+    let ip = getClientIp(req);
     if (typeof ip === 'string' && ip.includes(',')) {
         ip = ip.split(',')[0].trim();
     }
@@ -391,18 +860,62 @@ app.post('/track/:shortCode', (req, res) => {
     }
 });
 
-// 전체 URL 삭제 API
+// 전체 URL 삭제 API - 관리자만 가능 또는 본인 것만 삭제
 app.delete('/delete-all', (req, res) => {
     try {
+        // 관리자 또는 로그인 확인
+        const userId = req.session.user ? req.session.user.id : null;
+        const isAdmin = req.session.user ? req.session.user.isAdmin : false;
+        
+        if (!userId) {
+            return res.status(401).json({ success: false, error: '로그인이 필요합니다' });
+        }
+        
         const db = loadDB();
-        // 모든 URL 삭제: 객체를 빈 객체로 만듦
-        const emptyDB = {};
-        saveDB(emptyDB);
-        res.json({ success: true, message: '모든 URL이 삭제되었습니다.' });
+        
+        if (isAdmin) {
+            // 관리자는 모든 URL 삭제 가능
+            saveDB({});
+            res.json({ success: true, message: '모든 URL이 삭제되었습니다.' });
+        } else {
+            // 일반 사용자는 자신의 URL만 삭제
+            const filteredDb = {};
+            for (const [shortCode, data] of Object.entries(db)) {
+                if (data.userId !== userId) {
+                    filteredDb[shortCode] = data;
+                }
+            }
+            saveDB(filteredDb);
+            res.json({ success: true, message: '내 URL이 모두 삭제되었습니다.' });
+        }
     } catch (error) {
         console.error('Error in /delete-all:', error);
         res.status(500).json({ success: false, error: '전체 삭제 중 서버 오류' });
     }
+});
+
+// 매일 자정(00:00)에 todayVisits 카운터 초기화
+cron.schedule('0 0 * * *', () => {
+    console.log('🕛 자정이 되어 오늘 방문자 수를 초기화합니다.');
+    try {
+        const db = loadDB();
+        
+        // 각 URL의 todayVisits를 0으로 초기화
+        for (const shortCode in db) {
+            if (db.hasOwnProperty(shortCode)) {
+                db[shortCode].todayVisits = 0;
+                db[shortCode].lastReset = new Date().toISOString();
+            }
+        }
+        
+        // 변경된 DB 저장
+        saveDB(db);
+        console.log('✅ 오늘 방문자 수 초기화 완료');
+    } catch (error) {
+        console.error('❌ 방문자 수 초기화 중 오류:', error);
+    }
+}, {
+    timezone: 'Asia/Seoul'  // 한국 시간대 기준
 });
 
 // 13:30 기준 3시간 간격 (01:30, 04:30, 07:30, 10:30, 13:30, 16:30, 19:30, 22:30)
@@ -445,7 +958,182 @@ app.get('/api/last-crawled', (req, res) => {
   res.json({ lastCrawled: last });
 });
 
-// 서버 시작
-app.listen(PORT, () => {
-  console.log(`서버가 http://localhost:${PORT} 에서 실행 중입니다.`);
+// 회원가입 처리 API (관리자만 사용 가능)
+app.post('/api/signup', async (req, res) => {
+  const { username, password, email, adminKey, isAdmin } = req.body;
+  
+  // 관리자 키 확인 (실제 사용 시 보안 강화 필요)
+  const ADMIN_KEY = 'hwaseon-admin-key';
+  const isAdminRequest = adminKey === ADMIN_KEY;
+  
+  if (!isAdminRequest) {
+    return res.status(403).json({ success: false, message: '관리자 권한이 필요합니다.' });
+  }
+  
+  if (!username || !password) {
+    return res.status(400).json({ success: false, message: '아이디와 비밀번호를 모두 입력해주세요.' });
+  }
+  
+  // 사용자 데이터 로드
+  const userData = loadUsers();
+  
+  // 아이디 중복 확인
+  if (userData.users.some(u => u.username === username)) {
+    return res.status(400).json({ success: false, message: '이미 사용 중인 아이디입니다.' });
+  }
+  
+  try {
+    // 비밀번호 해싱
+    const saltRounds = 10;
+    const passwordHash = await bcrypt.hash(password, saltRounds);
+    
+    // 사용자 추가
+    const newUser = {
+      id: Date.now().toString(),
+      username,
+      passwordHash,
+      email: email || '',
+      isAdmin: isAdmin === true,
+      createdAt: new Date().toISOString()
+    };
+    
+    userData.users.push(newUser);
+    
+    // 사용자 데이터 저장
+    if (saveUsers(userData)) {
+      res.json({ success: true, message: '사용자 계정이 생성되었습니다.' });
+    } else {
+      res.status(500).json({ success: false, message: '계정 생성 중 오류가 발생했습니다.' });
+    }
+  } catch (error) {
+    console.error('Error in signup:', error);
+    res.status(500).json({ success: false, message: '계정 생성 중 오류가 발생했습니다.' });
+  }
 });
+
+// 사용자 목록 조회 API (관리자만 사용 가능)
+app.get('/api/users', (req, res) => {
+  const { adminKey } = req.query;
+  
+  // 관리자 키 확인
+  const ADMIN_KEY = 'hwaseon-admin-key';
+  if (adminKey !== ADMIN_KEY) {
+    return res.status(403).json({ success: false, message: '관리자 권한이 필요합니다.' });
+  }
+  
+  // 세션 체크
+  if (!req.session.user || !req.session.user.isAdmin) {
+    // 비로그인 또는 비관리자도 키가 있으면 조회 가능하도록 허용
+    // 실제 서비스에서는 세션 체크를 더 엄격하게 할 수 있음
+  }
+  
+  try {
+    const userData = loadUsers();
+    
+    // 비밀번호 해시 등 민감 정보 제외하고 전송
+    const users = userData.users.map(user => ({
+      id: user.id,
+      username: user.username,
+      email: user.email,
+      isAdmin: user.isAdmin,
+      createdAt: user.createdAt
+    }));
+    
+    res.json({ success: true, users });
+  } catch (error) {
+    console.error('Error loading users:', error);
+    res.status(500).json({ success: false, message: '사용자 목록 조회 중 오류가 발생했습니다.' });
+  }
+});
+
+// 사용자 삭제 API (관리자만 사용 가능)
+app.delete('/api/users/:userId', (req, res) => {
+  const { userId } = req.params;
+  const { adminKey } = req.body;
+  
+  // 관리자 키 확인
+  const ADMIN_KEY = 'hwaseon-admin-key';
+  if (adminKey !== ADMIN_KEY) {
+    return res.status(403).json({ success: false, message: '관리자 권한이 필요합니다.' });
+  }
+  
+  try {
+    const userData = loadUsers();
+    
+    // 사용자 찾기
+    const userIndex = userData.users.findIndex(u => u.id === userId);
+    if (userIndex === -1) {
+      return res.status(404).json({ success: false, message: '사용자를 찾을 수 없습니다.' });
+    }
+    
+    // 자기 자신은 삭제 불가능
+    if (req.session.user && req.session.user.id === userId) {
+      return res.status(403).json({ success: false, message: '자기 자신의 계정은 삭제할 수 없습니다.' });
+    }
+    
+    // 사용자 삭제
+    userData.users.splice(userIndex, 1);
+    
+    // 저장
+    if (saveUsers(userData)) {
+      res.json({ success: true, message: '사용자가 삭제되었습니다.' });
+    } else {
+      res.status(500).json({ success: false, message: '사용자 삭제 중 오류가 발생했습니다.' });
+    }
+  } catch (error) {
+    console.error('Error deleting user:', error);
+    res.status(500).json({ success: false, message: '사용자 삭제 중 오류가 발생했습니다.' });
+  }
+});
+
+// 서버 시작
+app.listen(PORT, async () => {
+  console.log(`서버가 http://localhost:${PORT} 에서 실행 중입니다.`);
+  
+  // 기본 관리자 계정 생성 (초기 설정)
+  await createDefaultAdminIfNeeded();
+});
+
+// 기본 관리자 계정 생성 함수
+async function createDefaultAdminIfNeeded() {
+  try {
+    const userData = loadUsers();
+    
+    // 이미 사용자가 있는지 확인
+    if (userData.users.length > 0) {
+      return; // 이미 사용자가 있으면 생성하지 않음
+    }
+    
+    // 관리자 계정 생성
+    const adminUsername = 'hwaseonad';
+    const adminPassword = 'hwaseon@00';
+    const adminEmail = 'gt.min@hawseon.com';
+    
+    // 비밀번호 해싱
+    const saltRounds = 10;
+    const passwordHash = await bcrypt.hash(adminPassword, saltRounds);
+    
+    // 관리자 사용자 추가
+    const adminUser = {
+      id: Date.now().toString(),
+      username: adminUsername,
+      passwordHash,
+      email: adminEmail,
+      isAdmin: true,
+      createdAt: new Date().toISOString()
+    };
+    
+    userData.users.push(adminUser);
+    
+    // 사용자 데이터 저장
+    if (saveUsers(userData)) {
+      console.log('기본 관리자 계정이 생성되었습니다:');
+      console.log(`아이디: ${adminUsername}`);
+      console.log(`비밀번호: ${adminPassword}`);
+    } else {
+      console.error('기본 관리자 계정 생성 중 오류가 발생했습니다.');
+    }
+  } catch (error) {
+    console.error('기본 관리자 계정 생성 중 오류:', error);
+  }
+}

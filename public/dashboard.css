@@ -99,6 +99,7 @@
   overflow: hidden;
   font-size: 15px;
   box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  table-layout: fixed;
 }
 
 .dashboard-table thead tr {
@@ -110,11 +111,14 @@
   background: #1877f2;
   color: #fff;
   font-weight: 500;
+  text-align: center;
+  padding: 16px 8px;
 }
 
-.dashboard-table th, .dashboard-table td {
-  padding: 16px;
-  text-align: left;
+.dashboard-table td {
+  padding: 16px 8px;
+  text-align: center;
+  vertical-align: middle;
 }
 
 .dashboard-table tr:hover {
@@ -126,37 +130,30 @@
   word-break: break-all;
 }
 
-.dashboard-table th:first-child {
-  width: 40px;
-  text-align: center;
-}
-
 .dashboard-table .star-cell {
+  width: 5%;
   text-align: center;
 }
 
 .dashboard-table .url-cell {
-  max-width: 400px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  text-align: center;
 }
 
 .dashboard-table .visits-cell {
   text-align: center;
 }
 
-.dashboard-table .memo-cell {
-  color: #666;
-}
-
-.dashboard-table .date-cell {
-  color: #333;
+.dashboard-table .user-cell {
+  text-align: center !important;
+  vertical-align: middle;
 }
 
 .dashboard-table .action-cell {
   text-align: center;
-  padding: 13px !important;
+  padding: 13px 8px !important;
 }
 
 /* 버튼 스타일 */
@@ -536,4 +533,38 @@
 .dashboard-table .visits-cell,
 .dashboard-table .logs-cell {
   text-align: center;
-} 
+}
+
+/* 사용자 배지 스타일 통일 */
+.user-badge {
+  display: inline-block;
+  background-color: #4c6ef5;
+  color: white;
+  font-size: 13px;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-weight: 500;
+  min-width: 80px;
+  text-align: center;
+}
+
+.admin-page-btn {
+  background-color: #4c6ef5;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 10px 16px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  margin-left: 10px;
+  transition: all 0.2s ease;
+}
+
+.admin-page-btn:hover {
+  background-color: #3b5bdb;
+  transform: translateY(-2px);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+}
+
+

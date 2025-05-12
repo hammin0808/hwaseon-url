@@ -1,0 +1,20 @@
+{
+  "users": [
+    {
+      "id": "1746961019533",
+      "username": "hwaseonad",
+      "passwordHash": "$2b$10$lrGG01NSRka4eBC5S2C4KOPd5XnIYdRgO4BU3qn1iZxZNy49413iq",
+      "email": "gt.min@hawseon.com",
+      "isAdmin": true,
+      "createdAt": "2025-05-11T10:56:59.533Z"
+    },
+    {
+      "id": "1746967335666",
+      "username": "asdff",
+      "passwordHash": "$2b$10$fgT.N5AKjYljSOB7GIN83upSdejrLOqMd7PXdCb8beHC2sRjzU3d.",
+      "email": "asdf@nagasdf",
+      "isAdmin": false,
+      "createdAt": "2025-05-11T12:42:15.667Z"
+    }
+  ]
+}

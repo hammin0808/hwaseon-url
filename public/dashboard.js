@@ -1,20 +1,40 @@
 // URL 목록 로드
 function loadUrls() {
-    fetch('https://hwaseon-url.onrender.com/urls')
+    // 현재 도메인 기반으로 설정
+    const baseUrl = window.location.origin;
+    
+    console.log('URL 목록 로드 시도');
+        
+    fetch(`${baseUrl}/urls`, {
+        method: 'GET',
+        headers: {
+            'Cache-Control': 'no-cache',
+            'Pragma': 'no-cache'
+        },
+        credentials: 'include' // 세션 쿠키 포함
+    })
         .then(response => {
+            console.log('URL 목록 응답 상태:', response.status);
             if (!response.ok) {
+                if (response.status === 401) {
+                    // 로그인이 필요한 경우
+                    console.log('인증되지 않음, 로그인 페이지로 이동');
+                    window.location.href = '/login';
+                    return;
+                }
                 throw new Error('서버 응답 오류');
             }
             return response.json();
         })
         .then(urls => {
+            console.log('URL 목록 수신 완료:', urls ? urls.length : 0);
             const tbody = document.getElementById('dashboard-tbody');
             tbody.innerHTML = '';
 
             if (!urls || urls.length === 0) {
                 const row = document.createElement('tr');
                 row.innerHTML = `
-                    <td colspan="7" style="text-align: center; padding: 20px;">
+                    <td colspan="8" style="text-align: center; padding: 20px;">
                         등록된 URL이 없습니다.
                     </td>
                 `;
@@ -22,26 +42,85 @@ function loadUrls() {
                 return;
             }
 
-            urls.forEach(url => {
-                const row = document.createElement('tr');
-                row.innerHTML = `
-                    <td class="star-cell">
-                        <span class="star inactive">★</span>
-                    </td>
-                    <td class="url-cell">
-                        <a href="${url.shortUrl}" target="_blank" class="url-link">${url.shortUrl}</a>
-                    </td>
-                    <td class="url-cell">${url.longUrl}</td>
-                    <td class="visits-cell">${url.todayVisits || 0}</td>
-                    <td class="visits-cell">${url.totalVisits || 0}</td>
-                    <td class="action-cell">
-                        <button class="delete-btn" onclick="deleteUrl('${url.shortCode}')">삭제</button>
-                    </td>
-                    <td class="action-cell">
-                        <button class="detail-btn" onclick="showDetails('${url.shortCode}')">보기</button>
-                    </td>
-                `;
-                tbody.appendChild(row);
+            // 현재 사용자 정보 가져오기
+            fetch('/api/me', {
+                credentials: 'include',
+                headers: {
+                    'Cache-Control': 'no-cache'
+                }
+            })
+            .then(response => response.json())
+            .then(userData => {
+                let currentUser = '';
+                if (userData && userData.success && userData.user) {
+                    currentUser = userData.user.username;
+                }
+
+                urls.forEach(url => {
+                    // 사용자 정보 표시 - URL 생성자에 따라 다르게 표시
+                    let displayUsername = '비회원';
+                    
+                    // URL에 사용자 정보가 있는 경우
+                    if (url.username) {
+                        displayUsername = url.username;
+                    }
+                    
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td class="star-cell" style="width: 5%; text-align: center;">
+                            <span class="star inactive">★</span>
+                        </td>
+                        <td class="url-cell" style="width: 15%; text-align: center;">
+                            <a href="${url.shortUrl}" target="_blank" class="url-link">${url.shortUrl}</a>
+                        </td>
+                        <td class="url-cell" style="width: 30%; text-align: center;">${url.longUrl}</td>
+                        <td class="visits-cell" style="width: 8%; text-align: center;">${url.todayVisits || 0}</td>
+                        <td class="visits-cell" style="width: 8%; text-align: center;">${url.totalVisits || 0}</td>
+                        <td class="user-cell" style="width: 10%; text-align: center;">${displayUsername}</td>
+                        <td class="action-cell" style="width: 7%; text-align: center;">
+                            <button class="delete-btn" onclick="deleteUrl('${url.shortCode}')">삭제</button>
+                        </td>
+                        <td class="action-cell" style="width: 7%; text-align: center;">
+                            <button class="detail-btn" onclick="showDetails('${url.shortCode}')">보기</button>
+                        </td>
+                    `;
+                    tbody.appendChild(row);
+                });
+            })
+            .catch(error => {
+                // 사용자 정보를 가져오는데 실패해도 URL 목록은 표시
+                console.error('Error getting user info:', error);
+                
+                urls.forEach(url => {
+                    // 사용자 정보 표시 - URL 생성자에 따라 다르게 표시
+                    let displayUsername = '비회원';
+                    
+                    // URL에 사용자 정보가 있는 경우
+                    if (url.username) {
+                        displayUsername = url.username;
+                    }
+                    
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td class="star-cell" style="width: 5%; text-align: center;">
+                            <span class="star inactive">★</span>
+                        </td>
+                        <td class="url-cell" style="width: 15%; text-align: center;">
+                            <a href="${url.shortUrl}" target="_blank" class="url-link">${url.shortUrl}</a>
+                        </td>
+                        <td class="url-cell" style="width: 30%; text-align: center;">${url.longUrl}</td>
+                        <td class="visits-cell" style="width: 8%; text-align: center;">${url.todayVisits || 0}</td>
+                        <td class="visits-cell" style="width: 8%; text-align: center;">${url.totalVisits || 0}</td>
+                        <td class="user-cell" style="width: 10%; text-align: center;">${displayUsername}</td>
+                        <td class="action-cell" style="width: 7%; text-align: center;">
+                            <button class="delete-btn" onclick="deleteUrl('${url.shortCode}')">삭제</button>
+                        </td>
+                        <td class="action-cell" style="width: 7%; text-align: center;">
+                            <button class="detail-btn" onclick="showDetails('${url.shortCode}')">보기</button>
+                        </td>
+                    `;
+                    tbody.appendChild(row);
+                });
             });
         })
         .catch(error => {
@@ -52,9 +131,13 @@ function loadUrls() {
 
 // URL 삭제
 function deleteUrl(shortCode) {
+    // 현재 도메인 기반으로 설정
+    const baseUrl = window.location.origin;
+        
     if (confirm('정말 삭제하시겠습니까?')) {
-        fetch(`https://hwaseon-url.onrender.com/urls/${shortCode}`, {
-            method: 'DELETE'
+        fetch(`${baseUrl}/urls/${shortCode}`, {
+            method: 'DELETE',
+            credentials: 'include' // 세션 쿠키 포함
         })
         .then(response => {
             if (!response.ok) {
@@ -71,7 +154,12 @@ function deleteUrl(shortCode) {
 
 // 상세 정보 표시
 function showDetails(shortCode) {
-    fetch(`https://hwaseon-url.onrender.com/urls/${shortCode}/details`)
+    // 로컬 서버 URL만 사용
+    const baseUrl = 'http://localhost:5001';
+        
+    fetch(`${baseUrl}/urls/${shortCode}/details`, {
+        credentials: 'include' // 세션 쿠키 포함
+    })
         .then(response => {
             if (!response.ok) {
                 throw new Error('상세 정보 조회 실패');
@@ -155,8 +243,6 @@ function showDetails(shortCode) {
         });
 }
 
-
-
 // 페이지 로드 시 URL 목록 로드
 document.addEventListener('DOMContentLoaded', function() {
     loadUrls();
@@ -166,7 +252,13 @@ document.addEventListener('DOMContentLoaded', function() {
         deleteAllBtn.addEventListener('click', async function() {
             if (!confirm('모든 URL을 삭제하시겠습니까?')) return;
             try {
-                const response = await fetch('https://hwaseon-url.onrender.com/delete-all', { method: 'DELETE' });
+                // 로컬 서버 URL만 사용
+                const baseUrl = 'http://localhost:5001';
+                    
+                const response = await fetch(`${baseUrl}/delete-all`, { 
+                    method: 'DELETE',
+                    credentials: 'include' // 세션 쿠키 포함
+                });
                 if (!response.ok) throw new Error('전체 삭제 실패');
                 loadUrls();
                 alert('모든 URL이 삭제되었습니다.');
@@ -181,8 +273,13 @@ document.addEventListener('DOMContentLoaded', function() {
     if (downloadExcelBtn) {
         downloadExcelBtn.addEventListener('click', async function() {
             try {
+                // 로컬 서버 URL만 사용
+                const baseUrl = 'http://localhost:5001';
+                    
                 // 1. 전체 URL 목록 가져오기
-                const urlRes = await fetch('https://hwaseon-url.onrender.com/urls');
+                const urlRes = await fetch(`${baseUrl}/urls`, {
+                    credentials: 'include' // 세션 쿠키 포함
+                });
                 if (!urlRes.ok) throw new Error('URL 목록 조회 실패');
                 const urls = await urlRes.json();
                 if (!Array.isArray(urls) || urls.length === 0) {
@@ -192,7 +289,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 // 2. 각 URL의 상세 정보(IP 등) 병합
                 const dataWithDetails = await Promise.all(urls.map(async url => {
                     try {
-                        const detailRes = await fetch(`https://hwaseon-url.onrender.com/urls/${url.shortCode}/details`);
+                        const detailRes = await fetch(`${baseUrl}/urls/${url.shortCode}/details`, {
+                            credentials: 'include' // 세션 쿠키 포함
+                        });
                         if (!detailRes.ok) throw new Error();
                         const details = await detailRes.json();
                         return {
