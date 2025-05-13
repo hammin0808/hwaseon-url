@@ -180,7 +180,7 @@ app.post('/api/admin/login', async (req, res) => {
 });
 
 // 사용자 로그인 API
-app.post('/api/login', (req, res) => {
+app.post('/api/login', async (req, res) => {
     const { username, password } = req.body;
     
     console.log('로그인 시도:', { username, sessionID: req.sessionID });
@@ -192,33 +192,64 @@ app.post('/api/login', (req, res) => {
         });
     }
     
-    // hwaseonad 계정 처리
-    if (username === 'hwaseonad' && password === 'hwaseon@00') {
-        const adminUser = {
-            id: 'admin',
-            username: 'hwaseonad',
-            email: 'gt.min@hawseon.com',
-            isAdmin: true
+    try {
+        // users.json에서 사용자 정보 로드
+        const usersData = JSON.parse(fs.readFileSync(USERS_FILE, 'utf8'));
+        const user = usersData.users.find(u => u.username === username);
+        
+        if (!user) {
+            return res.status(401).json({
+                success: false,
+                message: '아이디 또는 비밀번호가 일치하지 않습니다.'
+            });
+        }
+        
+        // bcrypt를 사용하여 비밀번호 검증
+        const isValidPassword = await bcrypt.compare(password, user.passwordHash);
+        
+        if (!isValidPassword) {
+            return res.status(401).json({
+                success: false,
+                message: '아이디 또는 비밀번호가 일치하지 않습니다.'
+            });
+        }
+        
+        // 세션에 사용자 정보 저장
+        req.session.user = {
+            id: user.id,
+            username: user.username,
+            email: user.email,
+            isAdmin: user.isAdmin
         };
         
-        req.session.user = adminUser;
-        
-        console.log('관리자 로그인 성공:', {
-            username: adminUser.username,
-            sessionID: req.sessionID
+        // 세션 저장
+        req.session.save(err => {
+            if (err) {
+                console.error('세션 저장 오류:', err);
+                return res.status(500).json({
+                    success: false,
+                    message: '세션 저장 중 오류가 발생했습니다.'
+                });
+            }
+            
+            console.log('로그인 성공:', user.username, req.session.id);
+            res.json({
+                success: true,
+                user: {
+                    username: user.username,
+                    email: user.email,
+                    isAdmin: user.isAdmin
+                }
+            });
         });
         
-        return res.json({ 
-            success: true, 
-            user: adminUser,
-            redirectTo: '/admin'
+    } catch (error) {
+        console.error('로그인 처리 중 오류:', error);
+        res.status(500).json({
+            success: false,
+            message: '서버 오류가 발생했습니다.'
         });
     }
-    
-    return res.status(401).json({ 
-        success: false, 
-        message: '아이디 또는 비밀번호가 일치하지 않습니다.' 
-    });
 });
 
 // 로그아웃 API
