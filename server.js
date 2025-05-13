@@ -197,6 +197,11 @@ app.post('/api/login', async (req, res) => {
         const usersData = JSON.parse(fs.readFileSync(USERS_FILE, 'utf8'));
         const user = usersData.users.find(u => u.username === username);
         
+        console.log('찾은 사용자:', user ? { 
+            username: user.username, 
+            isAdmin: user.isAdmin 
+        } : '없음');
+        
         if (!user) {
             return res.status(401).json({
                 success: false,
@@ -206,6 +211,8 @@ app.post('/api/login', async (req, res) => {
         
         // bcrypt를 사용하여 비밀번호 검증
         const isValidPassword = await bcrypt.compare(password, user.passwordHash);
+        
+        console.log('비밀번호 검증 결과:', isValidPassword);
         
         if (!isValidPassword) {
             return res.status(401).json({
@@ -239,7 +246,8 @@ app.post('/api/login', async (req, res) => {
                     username: user.username,
                     email: user.email,
                     isAdmin: user.isAdmin
-                }
+                },
+                redirectTo: user.isAdmin ? '/admin' : '/dashboard'
             });
         });
         
