@@ -37,6 +37,12 @@ app.use(session({
     secret: 'hwaseon-secret-key',
     resave: false,
     saveUninitialized: false,
+    store: new FileStore({
+        path: './sessions',
+        ttl: 24 * 60 * 60,
+        reapInterval: 60 * 60,
+        retries: 0
+    }),
     cookie: {
         httpOnly: true,
         secure: false,
@@ -101,24 +107,36 @@ app.get('/multiple.html', (req, res) => {
 
 // 대시보드 페이지 - 인증 필요
 app.get('/dashboard', (req, res) => {
-    if (req.session.user) {
-        res.sendFile(path.join(__dirname, 'public', 'dashboard.html'));
-    } else {
-        res.redirect('/login');
+    console.log('Dashboard access attempt:', {
+        sessionID: req.sessionID,
+        user: req.session.user,
+        path: req.path
+    });
+
+    if (!req.session.user) {
+        console.log('Unauthorized dashboard access, redirecting to login');
+        return res.redirect('/login');
     }
+
+    console.log('Authorized dashboard access for:', req.session.user.username);
+    res.sendFile(path.join(__dirname, 'public', 'dashboard.html'));
 });
 
 // 대시보드 페이지 (기존 경로도 유지)
 app.get('/dashboard.html', (req, res) => {
-  console.log('dashboard.html 접근 시도:', req.session.id, req.session.user ? req.session.user.username : 'No user');
-  
-  if (req.session.user) {
-    console.log('인증된 사용자가 dashboard.html 접근:', req.session.user.username);
+    console.log('Dashboard.html access attempt:', {
+        sessionID: req.sessionID,
+        user: req.session.user,
+        path: req.path
+    });
+
+    if (!req.session.user) {
+        console.log('Unauthorized dashboard.html access, redirecting to login');
+        return res.redirect('/login');
+    }
+
+    console.log('Authorized dashboard.html access for:', req.session.user.username);
     res.sendFile(path.join(__dirname, 'public', 'dashboard.html'));
-  } else {
-    console.log('인증되지 않은 사용자가 dashboard.html 접근 시도');
-    res.redirect('/login');
-  }
 });
 
 // 관리자 비밀번호 검증
@@ -282,20 +300,28 @@ app.post('/api/logout', (req, res) => {
 
 // 현재 로그인한 사용자 정보 API
 app.get('/api/me', (req, res) => {
-    console.log('사용자 정보 요청:', {
+    console.log('User info request:', {
         sessionID: req.sessionID,
-        user: req.session.user ? req.session.user.username : 'none'
+        user: req.session.user ? req.session.user.username : 'none',
+        path: req.path
     });
     
     if (req.session.user) {
         res.json({ 
             success: true, 
-            user: req.session.user 
+            user: {
+                username: req.session.user.username,
+                email: req.session.user.email,
+                isAdmin: req.session.user.isAdmin
+            },
+            isAuthenticated: true
         });
     } else {
         res.status(401).json({ 
             success: false, 
-            message: '로그인이 필요합니다.' 
+            message: '로그인이 필요합니다.',
+            isAuthenticated: false,
+            redirectTo: '/login'
         });
     }
 });
