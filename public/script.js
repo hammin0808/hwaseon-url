@@ -81,12 +81,13 @@ shortenBtn.addEventListener('click', async function(e) {
     });
 
     if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+      const errorData = await response.json();
+      throw new Error(errorData.message || 'URL 단축 중 오류가 발생했습니다.');
     }
 
     const data = await response.json();
     if (!data.shortUrl) {
-      throw new Error('Invalid response from server');
+      throw new Error('서버 응답이 올바르지 않습니다.');
     }
 
     // 사용자에게는 hwaseon-url 형식으로 보여줌

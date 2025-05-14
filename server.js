@@ -586,58 +586,65 @@ const BASE_URL = process.env.NODE_ENV === 'production'
   : `http://localhost:${PORT}`;
 
 // URL 단축 API - 사용자 정보 추가
-app.post('/shorten', (req, res) => {
+app.post('/api/shorten', async (req, res) => {
     try {
-        const longUrl = req.body.url;
-        if (!longUrl) {
-            return res.status(400).json({ error: 'URL 누락' });
+        const { url } = req.body;
+        
+        if (!url) {
+            return res.status(400).json({ 
+                success: false, 
+                message: 'URL이 필요합니다.' 
+            });
         }
 
         // URL 유효성 검사
-        const urlPattern = /^(https?:\/\/)?([\w.-]+)\.([a-z]{2,})(\/\S*)?$/i;
-        if (!urlPattern.test(longUrl)) {
-            return res.status(400).json({ error: '유효하지 않은 URL 형식입니다.' });
+        try {
+            new URL(url);
+        } catch (err) {
+            return res.status(400).json({ 
+                success: false, 
+                message: '유효하지 않은 URL입니다.' 
+            });
         }
 
-        const db = loadDB();
-        let shortCode;
-        let isUnique = false;
+        // 단축 코드 생성
+        const shortCode = generateShortCode();
         
-        // 중복되지 않는 shortCode 생성
-        while (!isUnique) {
-            shortCode = generateShortCode();
-            if (!db[shortCode]) {
-                isUnique = true;
-            }
+        // DB에서 현재 데이터 로드
+        const db = loadDB();
+        
+        // db.urls가 없으면 초기화
+        if (!db.urls) {
+            db.urls = [];
         }
-
-        const ip = getClientIp(req);
-        const userId = req.session.user ? req.session.user.id : null;
-        const username = req.session.user ? req.session.user.username : null;
-
-        db[shortCode] = {
-            longUrl,
-            shortUrl: `${BASE_URL}/${shortCode}`,
-            todayVisits: 0,
-            totalVisits: 0,
+        
+        // 새로운 URL 정보 추가
+        const newUrl = {
+            shortCode,
+            originalUrl: url,
             createdAt: new Date().toISOString(),
-            lastReset: new Date().toISOString(),
-            ip,
-            userId,
-            username,
-            logs: []
+            visits: 0,
+            lastVisit: null,
+            creator: req.session.user ? req.session.user.username : '익명'
         };
-
+        
+        db.urls.push(newUrl);
+        
+        // DB 저장
         saveDB(db);
-
-        res.json({ 
-            shortUrl: db[shortCode].shortUrl,
-            shortCode: shortCode,
-            username: username
+        
+        // 응답
+        res.json({
+            success: true,
+            shortUrl: `${req.protocol}://${req.get('host')}/${shortCode}`,
+            redirectUrl: url
         });
     } catch (error) {
-        console.error('Error:', error);
-        res.status(500).json({ error: '서버 오류' });
+        console.error('URL 단축 에러:', error);
+        res.status(500).json({ 
+            success: false, 
+            message: '서버 오류가 발생했습니다.' 
+        });
     }
 });
 
@@ -950,64 +957,6 @@ app.delete('/api/users/:userId', (req, res) => {
   } catch (error) {
     console.error('Error deleting user:', error);
     res.status(500).json({ success: false, message: '사용자 삭제 중 오류가 발생했습니다.' });
-  }
-});
-
-// URL 단축 API 엔드포인트
-app.post('/api/shorten', async (req, res) => {
-  try {
-    const { url } = req.body;
-    
-    if (!url) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'URL이 필요합니다.' 
-      });
-    }
-
-    // URL 유효성 검사
-    try {
-      new URL(url);
-    } catch (err) {
-      return res.status(400).json({ 
-        success: false, 
-        message: '유효하지 않은 URL입니다.' 
-      });
-    }
-
-    // 단축 코드 생성
-    const shortCode = generateShortCode();
-    
-    // DB에서 현재 데이터 로드
-    const db = loadDB();
-    
-    // 새로운 URL 정보 추가
-    const newUrl = {
-      shortCode,
-      originalUrl: url,
-      createdAt: new Date().toISOString(),
-      visits: 0,
-      lastVisit: null,
-      creator: req.session.user ? req.session.user.username : '익명'
-    };
-    
-    db.urls.push(newUrl);
-    
-    // DB 저장
-    saveDB(db);
-    
-    // 응답
-    res.json({
-      success: true,
-      shortUrl: `${req.protocol}://${req.get('host')}/${shortCode}`,
-      redirectUrl: url
-    });
-  } catch (error) {
-    console.error('URL 단축 에러:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: '서버 오류가 발생했습니다.' 
-    });
   }
 });
 
