@@ -21,11 +21,11 @@ const USERS_FILE = './users.json';
 // CORS 설정
 app.use(cors({
     origin: process.env.NODE_ENV === 'production' 
-        ? ['https://hwaseon-url.com', 'https://www.hwaseon-url.com']
+        ? ['https://hwaseon-url.com', 'https://www.hwaseon-url.com', 'https://hwaseon-url.onrender.com']
         : 'http://localhost:5001',
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization']
+    allowedHeaders: ['Content-Type', 'Authorization', 'Cookie']
 }));
 
 // body parser 설정
@@ -35,23 +35,24 @@ app.use(express.urlencoded({ extended: true }));
 // 세션 설정
 app.use(session({
     secret: process.env.SESSION_SECRET || 'hwaseon-secret-key',
-    resave: false,
+    resave: true,
     saveUninitialized: false,
     store: MongoStore.create({
         mongoUrl: process.env.MONGODB_URI,
-        ttl: 24 * 60 * 60, // 24시간
+        ttl: 24 * 60 * 60,
         autoRemove: 'native',
-        touchAfter: 24 * 3600, // 24시간마다 세션 업데이트
+        touchAfter: 24 * 3600,
         crypto: {
             secret: process.env.SESSION_SECRET || 'hwaseon-secret-key'
         }
     }),
+    name: 'hwaseon.sid',
     cookie: {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
-        maxAge: 24 * 60 * 60 * 1000, // 24시간
-        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-        domain: process.env.NODE_ENV === 'production' ? '.hwaseon-url.com' : undefined
+        maxAge: 24 * 60 * 60 * 1000,
+        sameSite: 'lax',
+        path: '/'
     }
 }));
 
@@ -63,17 +64,26 @@ app.use((req, res, next) => {
     console.log('Session Debug:', {
         sessionID: req.sessionID,
         user: req.session.user,
-        path: req.path
+        path: req.path,
+        cookies: req.headers.cookie
     });
     next();
 });
 
 // 로그인 상태 확인 미들웨어
 const requireLogin = (req, res, next) => {
+    console.log('로그인 체크:', {
+        sessionID: req.sessionID,
+        user: req.session.user,
+        path: req.path,
+        cookies: req.headers.cookie
+    });
+
     if (!req.session.user) {
         return res.status(401).json({ 
             success: false, 
-            message: '로그인이 필요합니다.' 
+            message: '로그인이 필요합니다.',
+            isAuthenticated: false
         });
     }
     next();
@@ -110,12 +120,8 @@ app.get('/multiple.html', (req, res) => {
 });
 
 // 대시보드 페이지 - 인증 필요
-app.get('/dashboard', (req, res) => {
-    if (req.session.user) {
-        res.sendFile(path.join(__dirname, 'public', 'dashboard.html'));
-    } else {
-        res.redirect('/login');
-    }
+app.get('/dashboard', requireLogin, (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'dashboard.html'));
 });
 
 // 대시보드 페이지 (기존 경로도 유지)
@@ -138,13 +144,12 @@ async function verifyAdminPassword(password) {
     return password === ADMIN_PASSWORD;
 }
 
-// 관리자 페이지
-app.get('/admin', (req, res) => {
-    if (req.session.user && req.session.user.isAdmin) {
-        res.sendFile(path.join(__dirname, 'public', 'admin.html'));
-    } else {
-        res.redirect('/login');
+// 관리자 페이지 - 인증 필요
+app.get('/admin', requireLogin, (req, res) => {
+    if (!req.session.user.isAdmin) {
+        return res.redirect('/dashboard');
     }
+    res.sendFile(path.join(__dirname, 'public', 'admin.html'));
 });
 
 // 관리자 로그인 API
@@ -196,7 +201,11 @@ app.post('/api/admin/login', async (req, res) => {
 app.post('/api/login', async (req, res) => {
     const { username, password } = req.body;
     
-    console.log('로그인 시도:', { username, sessionID: req.sessionID });
+    console.log('로그인 시도:', { 
+        username, 
+        sessionID: req.sessionID,
+        cookies: req.headers.cookie 
+    });
     
     if (!username || !password) {
         return res.status(400).json({ 
@@ -234,40 +243,51 @@ app.post('/api/login', async (req, res) => {
             });
         }
         
-        // 세션에 사용자 정보 저장
-        req.session.user = {
-            id: user.id,
-            username: user.username,
-            email: user.email,
-            isAdmin: user.isAdmin
-        };
-        
-        // 세션 저장 완료 후 응답
-        req.session.save(err => {
+        // 세션 재생성
+        req.session.regenerate(function(err) {
             if (err) {
-                console.error('세션 저장 오류:', err);
+                console.error('세션 재생성 오류:', err);
                 return res.status(500).json({
                     success: false,
-                    message: '세션 저장 중 오류가 발생했습니다.'
+                    message: '세션 생성 중 오류가 발생했습니다.'
                 });
             }
+
+            // 세션에 사용자 정보 저장
+            req.session.user = {
+                id: user.id,
+                username: user.username,
+                email: user.email,
+                isAdmin: user.isAdmin
+            };
             
-            console.log('로그인 성공:', user.username, req.session.id);
-            
-            // 로그인 성공 시 리다이렉트 URL 결정
-            const redirectUrl = user.isAdmin ? '/admin' : '/dashboard';
-            
-            res.json({
-                success: true,
-                user: {
-                    username: user.username,
-                    email: user.email,
-                    isAdmin: user.isAdmin
-                },
-                redirectTo: redirectUrl
+            // 세션 저장
+            req.session.save(function(err) {
+                if (err) {
+                    console.error('세션 저장 오류:', err);
+                    return res.status(500).json({
+                        success: false,
+                        message: '세션 저장 중 오류가 발생했습니다.'
+                    });
+                }
+                
+                console.log('로그인 성공. 세션 정보:', {
+                    sessionID: req.sessionID,
+                    user: req.session.user,
+                    cookies: req.headers.cookie
+                });
+                
+                res.json({
+                    success: true,
+                    user: {
+                        username: user.username,
+                        email: user.email,
+                        isAdmin: user.isAdmin
+                    },
+                    redirectTo: user.isAdmin ? '/admin' : '/dashboard'
+                });
             });
         });
-        
     } catch (error) {
         console.error('로그인 처리 중 오류:', error);
         res.status(500).json({
