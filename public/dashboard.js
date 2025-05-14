@@ -67,8 +67,8 @@ function loadUrls() {
                     
                     const row = document.createElement('tr');
                     row.innerHTML = `
-                        <td class="star-cell" style="width: 5%; text-align: center;">
-                            <span class="star inactive">★</span>
+                        <td class="action-cell" style="width: 5%; text-align: center;">
+                            <button class="copy-btn" onclick="copyToClipboard('${url.shortUrl}')" style="padding: 4px 8px; background-color: #1877f2; color: white; border: none; border-radius: 4px; cursor: pointer;">복사</button>
                         </td>
                         <td class="url-cell" style="width: 15%; text-align: center;">
                             <a href="${url.shortUrl}" target="_blank" class="url-link">${url.shortUrl}</a>
@@ -102,8 +102,8 @@ function loadUrls() {
                     
                     const row = document.createElement('tr');
                     row.innerHTML = `
-                        <td class="star-cell" style="width: 5%; text-align: center;">
-                            <span class="star inactive">★</span>
+                        <td class="action-cell" style="width: 5%; text-align: center;">
+                            <button class="copy-btn" onclick="copyToClipboard('${url.shortUrl}')" style="padding: 4px 8px; background-color: #1877f2; color: white; border: none; border-radius: 4px; cursor: pointer;">복사</button>
                         </td>
                         <td class="url-cell" style="width: 15%; text-align: center;">
                             <a href="${url.shortUrl}" target="_blank" class="url-link">${url.shortUrl}</a>
@@ -312,7 +312,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 ];
                 // 3. 엑셀 데이터 생성 (시트 2: 상세보기)
                 const wsDataDetail = [
-                    ['Short URL', 'Long URL', '생성일 / IP', '접속 로그', '접속시간']
+                    ['Short URL', 'Long URL', '생성일 / IP', '접속 IP', '접속시간']
                 ];
                 dataWithDetails.forEach(item => {
                     // 생성일/ IP (맨 앞 IP만)
@@ -327,6 +327,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         ipDisplay = '(' + ipDisplay.split(',')[0].trim() + ')';
                     }
                     const dateIp = `${formattedDate} ${ipDisplay}`;
+                    
                     // 대시보드 시트 한 줄
                     wsDataDashboard.push([
                         item.shortUrl,
@@ -335,15 +336,24 @@ document.addEventListener('DOMContentLoaded', function() {
                         item.totalVisits,
                         dateIp
                     ]);
-                    // 상세보기 시트: 접속 로그/시각 여러 개면 행 여러 개
+                    
+                    // 상세보기 시트: 모든 로그를 개별 행으로 표시
                     if (item.logs && item.logs.length > 0) {
-                        item.logs.forEach((log, idx) => {
+                        item.logs.forEach(log => {
                             const logIp = log.ip;
-                            const logTime = new Date(log.time).toLocaleString('ko-KR', {year:'2-digit',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false});
+                            const logTime = new Date(log.time).toLocaleString('ko-KR', {
+                                year: '2-digit',
+                                month: '2-digit',
+                                day: '2-digit',
+                                hour: '2-digit',
+                                minute: '2-digit',
+                                second: '2-digit',
+                                hour12: false
+                            });
                             wsDataDetail.push([
-                                idx === 0 ? item.shortUrl : '',
-                                idx === 0 ? item.longUrl : '',
-                                idx === 0 ? dateIp : '',
+                                item.shortUrl,
+                                item.longUrl,
+                                dateIp,
                                 logIp,
                                 logTime
                             ]);
@@ -353,8 +363,8 @@ document.addEventListener('DOMContentLoaded', function() {
                             item.shortUrl,
                             item.longUrl,
                             dateIp,
-                            '',
-                            ''
+                            '-',
+                            '-'
                         ]);
                     }
                 });
@@ -383,7 +393,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     { wch: 30 }, // Short URL
                     { wch: 50 }, // Long URL
                     { wch: 32 }, // 생성일 / IP
-                    { wch: 40 }, // 접속 로그
+                    { wch: 40 }, // 접속 IP
                     { wch: 22 }  // 접속시간
                 ];
                 // 헤더 스타일 적용 (보라색 계열 배경, 흰색 글씨, 굵은 글씨)
@@ -447,5 +457,35 @@ function checkLoginStatus() {
         console.error('로그인 상태 확인 오류:', error);
         // 오류 발생 시도 로그인 페이지로 이동
         window.location.href = '/login';
+    });
+}
+
+// 클립보드에 복사하는 함수
+function copyToClipboard(text) {
+    navigator.clipboard.writeText(text).then(() => {
+        // 복사 성공 알림 표시
+        const notification = document.createElement('div');
+        notification.style.position = 'fixed';
+        notification.style.top = '90%';
+        notification.style.left = '50%';
+        notification.style.transform = 'translate(-50%, -50%)';
+        notification.style.padding = '15px 25px';
+        notification.style.backgroundColor = '#28a745';
+        notification.style.color = 'white';
+        notification.style.borderRadius = '4px';
+        notification.style.zIndex = '1000';
+        notification.style.textAlign = 'center';
+        notification.style.boxShadow = '0 2px 10px rgba(0,0,0,0.1)';
+        notification.textContent = 'URL이 복사되었습니다!';
+        
+        document.body.appendChild(notification);
+        
+        // 1.5초 후 알림 제거 (중앙에 표시되므로 시간을 좀 더 짧게 조정)
+        setTimeout(() => {
+            notification.remove();
+        }, 1500);
+    }).catch(err => {
+        console.error('클립보드 복사 실패:', err);
+        alert('URL 복사에 실패했습니다.');
     });
 } 

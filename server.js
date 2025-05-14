@@ -15,6 +15,7 @@ const DB_FILE = './db.json';
 const LAST_CRAWLED_FILE = './last_crawled.json';
 const USERS_FILE = './users.json';
 
+
 // CORS 설정
 app.use(cors({
     origin: process.env.NODE_ENV === 'production' 
@@ -444,6 +445,12 @@ app.get('/urls', (req, res) => {
             // 로그인하지 않은 경우 아무것도 볼 수 없음 (비회원)
             return false;
         })
+        .sort((a, b) => {
+            // 최신순 정렬 (createdAt 기준)
+            const dateA = new Date(db[a].createdAt);
+            const dateB = new Date(db[b].createdAt);
+            return dateB - dateA;
+        })
         .map(shortCode => {
             // 사용자 정보 추가
             let urlData = db[shortCode];
@@ -602,7 +609,7 @@ function getClientIp(req) {
 
 // 단축 URL 생성 시 도메인 설정
 const BASE_URL = process.env.NODE_ENV === 'production'
-  ? (process.env.DOMAIN || 'https://hwaseon-url.onrender.com')
+  ? (process.env.DOMAIN || 'https://hwaseon-url.com')
   : `http://localhost:${PORT}`;
 
 // URL 단축 API - 사용자 정보 추가

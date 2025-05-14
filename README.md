@@ -45,14 +45,14 @@ npm start
 4. 환경 변수 설정 (Advanced 섹션에서 설정):
    - `NODE_ENV`: `production`
    - `PORT`: `5001` (Render는 자동으로 $PORT 변수 지정)
-   - `DOMAIN`: 실제 도메인 (e.g. `https://hwaseon-url.onrender.com`)
+   - `DOMAIN`: `https://hwaseon-url.com`
    - `SESSION_SECRET`: 보안을 위한 복잡한 문자열
 
 5. "Create Web Service" 버튼 클릭하여 배포
 
 ### 3. 배포 후 설정
 
-1. 배포된 서비스 URL 확인 (e.g. `https://hwaseon-url.onrender.com`)
+1. 배포된 서비스 URL 확인 (e.g. `https://hwaseon-url.com`)
 2. 필요한 경우 커스텀 도메인 설정:
    - Render 대시보드에서 해당 서비스 선택
    - "Settings" > "Custom Domain" 메뉴에서 도메인 설정
@@ -93,13 +93,13 @@ NODE_ENV=production  # 배포 환경: production, 개발 환경: development
 PORT=5001  # 서버 포트 (Render.com은 자체 포트 할당)
 
 # 도메인 설정
-DOMAIN=https://hwaseon-url.onrender.com  # 실제 배포된 도메인으로 변경
+DOMAIN=https://hwaseon-url.com  # 실제 배포된 도메인
 
 # 세션 보안 설정
 SESSION_SECRET=random-secure-string  # 보안을 위해 복잡한 무작위 문자열로 변경
 
 # CORS 설정 (추가 도메인이 필요한 경우)
-ALLOWED_ORIGINS=https://hwaseon-url.com,https://hwaseon-url.onrender.com
+ALLOWED_ORIGINS=https://hwaseon-url.com
 ```
 
 ### 중요 환경 변수 설명
@@ -108,7 +108,6 @@ ALLOWED_ORIGINS=https://hwaseon-url.com,https://hwaseon-url.onrender.com
 - **PORT**: 서버가 실행될 포트를 지정합니다. Render.com에서는 자동으로 `PORT` 환경 변수를 설정합니다.
 - **DOMAIN**: 클라이언트에게 제공되는 단축 URL에 사용될 도메인입니다. 배포된 실제 도메인으로 설정해야 합니다.
 - **SESSION_SECRET**: 세션 암호화에 사용되는 비밀키입니다. 보안을 위해 복잡하고 긴 문자열로 설정하세요.
-- **ALLOWED_ORIGINS**: CORS 허용 도메인 목록입니다. 여러 도메인이 필요한 경우 콤마로 구분합니다.
 
 ## 라이선스
 

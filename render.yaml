@@ -9,5 +9,7 @@ services:
         value: production
       - key: PORT
         value: 5001
+      - key: DOMAIN
+        value: https://hwaseon-url.com
     healthCheckPath: /
     autoDeploy: true 
