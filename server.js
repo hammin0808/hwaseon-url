@@ -9,7 +9,7 @@ const bcrypt = require('bcryptjs');
 
 
 
-const app = express();
+const app = express(); 
 const PORT = process.env.PORT || 5001;
 const DB_FILE = './db.json';
 const USERS_FILE = './users.json';
@@ -17,7 +17,7 @@ const USERS_FILE = './users.json';
 // CORS 설정
 app.use(cors({
     origin: process.env.NODE_ENV === 'production' 
-        ? ['https://hwaseon-url'] 
+        ? ['https://hwaseon-url.com', 'https://www.hwaseon-url.com'] 
         : ['http://localhost:5001'],
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
@@ -564,7 +564,7 @@ function getClientIp(req) {
 
 // 단축 URL 생성 시 도메인 설정
 const BASE_URL = process.env.NODE_ENV === 'production'
-  ? 'https://hwaseon-url'
+  ? 'https://hwaseon-url.com'
   : `http://localhost:${PORT}`;
 
 // URL 단축 API - 사용자 정보 추가
