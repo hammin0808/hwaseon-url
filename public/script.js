@@ -70,7 +70,7 @@ shortenBtn.addEventListener('click', async function(e) {
   console.log('URL 단축 전 세션 쿠키 확인');
   
   try {
-    const response = await fetch(`${API_BASE_URL}/shorten`, {
+    const response = await fetch(`${API_BASE_URL}/api/shorten`, {
       method: 'POST',
       headers: { 
         'Content-Type': 'application/json',

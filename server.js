@@ -8,7 +8,6 @@ const cron = require('node-cron');
 const bcrypt = require('bcryptjs');
 
 
-
 const app = express(); 
 const PORT = process.env.PORT || 5001;
 const DB_FILE = './db.json';
@@ -420,12 +419,31 @@ app.delete('/api/admin/users/:userId', (req, res) => {
 app.get('/urls', (req, res) => {
     try {
         const db = loadDB();
-        const urls = Object.entries(db).map(([shortCode, data]) => ({
-            shortCode,
-            ...data
-        }))
+        let urls;
+
+        // 관리자인 경우 모든 URL 표시
+        if (req.session.user && req.session.user.isAdmin) {
+            urls = Object.entries(db).map(([shortCode, data]) => ({
+                shortCode,
+                ...data
+            }));
+        } 
+        // 일반 사용자인 경우 자신의 URL만 표시
+        else if (req.session.user) {
+            urls = Object.entries(db)
+                .filter(([_, data]) => data.creator === req.session.user.username)
+                .map(([shortCode, data]) => ({
+                    shortCode,
+                    ...data
+                }));
+        }
+        // 로그인하지 않은 경우
+        else {
+            return res.status(401).json({ error: '로그인이 필요합니다.' });
+        }
+
         // createdAt 기준으로 내림차순 정렬 (최신순)
-        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+        urls.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
         
         res.json(urls);
     } catch (error) {
@@ -932,6 +950,64 @@ app.delete('/api/users/:userId', (req, res) => {
   } catch (error) {
     console.error('Error deleting user:', error);
     res.status(500).json({ success: false, message: '사용자 삭제 중 오류가 발생했습니다.' });
+  }
+});
+
+// URL 단축 API 엔드포인트
+app.post('/api/shorten', async (req, res) => {
+  try {
+    const { url } = req.body;
+    
+    if (!url) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'URL이 필요합니다.' 
+      });
+    }
+
+    // URL 유효성 검사
+    try {
+      new URL(url);
+    } catch (err) {
+      return res.status(400).json({ 
+        success: false, 
+        message: '유효하지 않은 URL입니다.' 
+      });
+    }
+
+    // 단축 코드 생성
+    const shortCode = generateShortCode();
+    
+    // DB에서 현재 데이터 로드
+    const db = loadDB();
+    
+    // 새로운 URL 정보 추가
+    const newUrl = {
+      shortCode,
+      originalUrl: url,
+      createdAt: new Date().toISOString(),
+      visits: 0,
+      lastVisit: null,
+      creator: req.session.user ? req.session.user.username : '익명'
+    };
+    
+    db.urls.push(newUrl);
+    
+    // DB 저장
+    saveDB(db);
+    
+    // 응답
+    res.json({
+      success: true,
+      shortUrl: `${req.protocol}://${req.get('host')}/${shortCode}`,
+      redirectUrl: url
+    });
+  } catch (error) {
+    console.error('URL 단축 에러:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: '서버 오류가 발생했습니다.' 
+    });
   }
 });
 
