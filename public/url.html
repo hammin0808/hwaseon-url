@@ -5,12 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Hwaseon URL 단축기</title>
   <link rel="stylesheet" href="url.css" />
-
 </head>
 <body>
   <div class="container">
     <!-- 로그인 상태 표시 -->
-    <div class="login-status" id="loginStatu">
+    <div class="login-status" id="loginStatus">
       <a href="/login" class="login-btn" onclick="window.location.href='/login'; return false;">로그인</a>
     </div>
     
@@ -28,7 +27,6 @@
       <button type="button" id="dashboardBtn" class="dashboard-btn">대시보드</button>
     </div>
   </div>
-  <div id="toast" class="toast-message"></div>
   <script>
     // 로그인 상태 확인
     document.addEventListener('DOMContentLoaded', function() {
@@ -91,63 +89,6 @@
         });
       }
     });
-
-    function showToast(message) {
-      const toast = document.getElementById('toast');
-      toast.textContent = message;
-      toast.style.display = 'block';
-      
-      // 2초 후에 메시지 숨기기
-      setTimeout(() => {
-        toast.style.display = 'none';
-      }, 2000);
-    }
-
-    async function shortenURL() {
-      const longUrl = document.getElementById('longUrl').value;
-      if (!longUrl) {
-        showToast('URL을 입력해주세요');
-        return;
-      }
-
-      try {
-        const response = await fetch('/api/shorten', {
-          method: 'POST',
-          credentials: 'include',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({ longUrl })
-        });
-
-        if (!response.ok) {
-          throw new Error('Network response was not ok');
-        }
-
-        const data = await response.json();
-        if (data && data.success && data.shortUrl) {
-          const shortUrl = data.shortUrl;
-          document.getElementById('shortUrl').textContent = shortUrl;
-          document.getElementById('resultBox').style.display = 'block';
-          
-          // 복사 버튼 클릭 핸들러
-          const copyBtn = document.getElementById('copyBtn');
-          copyBtn.addEventListener('click', () => {
-            navigator.clipboard.writeText(shortUrl).then(() => {
-              showToast('URL이 복사되었습니다');
-            }).catch(err => {
-              showToast('복사 중 오류가 발생했습니다');
-              console.error('복사 실패:', err);
-            });
-          });
-        }
-      } catch (error) {
-        console.error('Error shortening URL:', error);
-        showToast('URL 단축 중 오류가 발생했습니다');
-      }
-    }
-
-    document.getElementById('shortenBtn').addEventListener('click', shortenURL);
   </script>
   <script src="script.js"></script>
 </body>

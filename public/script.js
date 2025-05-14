@@ -70,7 +70,7 @@ shortenBtn.addEventListener('click', async function(e) {
   console.log('URL 단축 전 세션 쿠키 확인');
   
   try {
-    const response = await fetch(`${API_BASE_URL}/api/shorten`, {
+    const response = await fetch(`${API_BASE_URL}/shorten`, {
       method: 'POST',
       headers: { 
         'Content-Type': 'application/json',
@@ -81,13 +81,12 @@ shortenBtn.addEventListener('click', async function(e) {
     });
 
     if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.message || 'URL 단축 중 오류가 발생했습니다.');
+      throw new Error(`HTTP error! status: ${response.status}`);
     }
 
     const data = await response.json();
     if (!data.shortUrl) {
-      throw new Error('서버 응답이 올바르지 않습니다.');
+      throw new Error('Invalid response from server');
     }
 
     // 사용자에게는 hwaseon-url 형식으로 보여줌

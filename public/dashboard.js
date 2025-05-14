@@ -1,47 +1,3 @@
-// URL 복사 함수
-async function copyToClipboard(text, buttonElement) {
-    try {
-        await navigator.clipboard.writeText(text);
-        
-        // Remove any existing message
-        const existingMsg = document.querySelector('.copy-message');
-        if (existingMsg) {
-            existingMsg.remove();
-        }
-
-        // Create and show the message below the button
-        const messageDiv = document.createElement('div');
-        messageDiv.className = 'toast-message';
-        messageDiv.style.cssText = `
-            position: fixed;
-            bottom: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            background-color: rgba(0, 0, 0, 0.8);
-            color: white;
-            padding: 12px 24px;
-            border-radius: 8px;
-            z-index: 1000;
-            animation: fadeInOut 2s ease-in-out;
-        `;
-        messageDiv.textContent = 'URL이 복사되었습니다';
-
-        
-        // Insert after the button
-        const container = buttonElement.parentNode;
-        container.style.position = 'relative';
-        container.appendChild(messageDiv);
-
-        // Remove the message after 2 seconds
-        setTimeout(() => {
-            messageDiv.remove();
-        }, 2000);
-    } catch (err) {
-        console.error('URL 복사 실패:', err);
-        alert('URL 복사에 실패했습니다.');
-    }
-}
-
 // URL 목록 로드
 function loadUrls() {
     // 현재 도메인 기반으로 설정
@@ -111,13 +67,13 @@ function loadUrls() {
                     
                     const row = document.createElement('tr');
                     row.innerHTML = `
-                        <td class="action-cell" style="width: 5%; text-align: center;">
-                            <button onclick="copyToClipboard('${url.shortUrl}', this)" class="copy-btn" style="padding: 4px 8px; background: #4c6ef5; color: white; border: none; border-radius: 4px; cursor: pointer;">복사</button>
+                        <td class="star-cell" style="width: 5%; text-align: center;">
+                            <span class="star inactive">★</span>
                         </td>
-                        <td class="url-cell" style="width: 20%; text-align: center;">
-                            <a href="${url.shortUrl}" target="_blank" class="url-link" style="word-break: break-all;">${url.shortUrl}</a>
+                        <td class="url-cell" style="width: 15%; text-align: center;">
+                            <a href="${url.shortUrl}" target="_blank" class="url-link">${url.shortUrl}</a>
                         </td>
-                        <td class="url-cell" style="width: 25%; text-align: center;">${url.longUrl}</td>
+                        <td class="url-cell" style="width: 30%; text-align: center;">${url.longUrl}</td>
                         <td class="visits-cell" style="width: 8%; text-align: center;">${url.todayVisits || 0}</td>
                         <td class="visits-cell" style="width: 8%; text-align: center;">${url.totalVisits || 0}</td>
                         <td class="user-cell" style="width: 10%; text-align: center;">${displayUsername}</td>
@@ -146,13 +102,13 @@ function loadUrls() {
                     
                     const row = document.createElement('tr');
                     row.innerHTML = `
-                        <td class="action-cell" style="width: 5%; text-align: center;">
-                            <button onclick="copyToClipboard('${url.shortUrl}', this)" class="copy-btn" style="padding: 4px 8px; background: #4c6ef5; color: white; border: none; border-radius: 4px; cursor: pointer;">복사</button>
+                        <td class="star-cell" style="width: 5%; text-align: center;">
+                            <span class="star inactive">★</span>
                         </td>
-                        <td class="url-cell" style="width: 20%; text-align: center;">
-                            <a href="${url.shortUrl}" target="_blank" class="url-link" style="word-break: break-all;">${url.shortUrl}</a>
+                        <td class="url-cell" style="width: 15%; text-align: center;">
+                            <a href="${url.shortUrl}" target="_blank" class="url-link">${url.shortUrl}</a>
                         </td>
-                        <td class="url-cell" style="width: 25%; text-align: center;">${url.longUrl}</td>
+                        <td class="url-cell" style="width: 30%; text-align: center;">${url.longUrl}</td>
                         <td class="visits-cell" style="width: 8%; text-align: center;">${url.todayVisits || 0}</td>
                         <td class="visits-cell" style="width: 8%; text-align: center;">${url.totalVisits || 0}</td>
                         <td class="user-cell" style="width: 10%; text-align: center;">${displayUsername}</td>
@@ -381,13 +337,13 @@ document.addEventListener('DOMContentLoaded', function() {
                     ]);
                     // 상세보기 시트: 접속 로그/시각 여러 개면 행 여러 개
                     if (item.logs && item.logs.length > 0) {
-                        item.logs.forEach(log => {
+                        item.logs.forEach((log, idx) => {
                             const logIp = log.ip;
                             const logTime = new Date(log.time).toLocaleString('ko-KR', {year:'2-digit',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false});
                             wsDataDetail.push([
-                                item.shortUrl,
-                                item.longUrl,
-                                dateIp,
+                                idx === 0 ? item.shortUrl : '',
+                                idx === 0 ? item.longUrl : '',
+                                idx === 0 ? dateIp : '',
                                 logIp,
                                 logTime
                             ]);
@@ -405,51 +361,39 @@ document.addEventListener('DOMContentLoaded', function() {
                 // 시트 생성 및 워크북에 추가
                 const wsDashboard = XLSX.utils.aoa_to_sheet(wsDataDashboard);
                 wsDashboard['!cols'] = [
-                    { wch: 25 }, // Short URL - 줄임
-                    { wch: 35 }, // Long URL - 줄임
+                    { wch: 30 }, // Short URL
+                    { wch: 50 }, // Long URL
                     { wch: 10 }, // 오늘 방문
                     { wch: 10 }, // 누적 방문
-                    { wch: 25 }  // 생성일 / IP - 줄임
+                    { wch: 32 }  // 생성일 / IP
                 ];
-                // 헤더 스타일 적용 (파란색 계열 배경, 흰색 글씨, 굵은 글씨)
+                // 헤더 스타일 적용 (보라색 계열 배경, 흰색 글씨, 굵은 글씨)
                 const dashboardHeader = ['A1','B1','C1','D1','E1'];
                 dashboardHeader.forEach(cell => {
                     if(wsDashboard[cell]) {
                         wsDashboard[cell].s = {
-                            fill: { fgColor: { rgb: '4C6EF5' } }, // 파란색으로 변경
-                            font: { color: { rgb: 'FFFFFF' }, bold: true, sz: 11 }, // 폰트 크기 지정
-                            alignment: { horizontal: 'center', vertical: 'center', wrapText: true }, // 자동 줄바꿈 추가
-                            border: { // 테두리 추가
-                                top: { style: 'thin', color: { rgb: 'FFFFFF' } },
-                                bottom: { style: 'thin', color: { rgb: 'FFFFFF' } },
-                                left: { style: 'thin', color: { rgb: 'FFFFFF' } },
-                                right: { style: 'thin', color: { rgb: 'FFFFFF' } }
-                            }
+                            fill: { fgColor: { rgb: '7D5FFF' } },
+                            font: { color: { rgb: 'FFFFFF' }, bold: true },
+                            alignment: { horizontal: 'center', vertical: 'center' }
                         };
                     }
                 });
                 const wsDetail = XLSX.utils.aoa_to_sheet(wsDataDetail);
                 wsDetail['!cols'] = [
-                    { wch: 25 }, // Short URL - 줄임
-                    { wch: 35 }, // Long URL - 줄임
-                    { wch: 25 }, // 생성일 / IP - 줄임
-                    { wch: 15 }, // 접속 로그 - 줄임
-                    { wch: 18 }  // 접속시간
+                    { wch: 30 }, // Short URL
+                    { wch: 50 }, // Long URL
+                    { wch: 32 }, // 생성일 / IP
+                    { wch: 40 }, // 접속 로그
+                    { wch: 22 }  // 접속시간
                 ];
-                // 헤더 스타일 적용 (파란색 계열 배경, 흰색 글씨, 굵은 글씨)
+                // 헤더 스타일 적용 (보라색 계열 배경, 흰색 글씨, 굵은 글씨)
                 const detailHeader = ['A1','B1','C1','D1','E1'];
                 detailHeader.forEach(cell => {
                     if(wsDetail[cell]) {
                         wsDetail[cell].s = {
-                            fill: { fgColor: { rgb: '4C6EF5' } }, // 파란색으로 변경
-                            font: { color: { rgb: 'FFFFFF' }, bold: true, sz: 11 }, // 폰트 크기 지정
-                            alignment: { horizontal: 'center', vertical: 'center', wrapText: true }, // 자동 줄바꿈 추가
-                            border: { // 테두리 추가
-                                top: { style: 'thin', color: { rgb: 'FFFFFF' } },
-                                bottom: { style: 'thin', color: { rgb: 'FFFFFF' } },
-                                left: { style: 'thin', color: { rgb: 'FFFFFF' } },
-                                right: { style: 'thin', color: { rgb: 'FFFFFF' } }
-                            }
+                            fill: { fgColor: { rgb: '7D5FFF' } },
+                            font: { color: { rgb: 'FFFFFF' }, bold: true },
+                            alignment: { horizontal: 'center', vertical: 'center' }
                         };
                     }
                 });
@@ -461,37 +405,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 alert('엑셀 다운로드 중 오류가 발생했습니다.');
             }
         });
-    }
-
-    // 백업/복원 버튼 추가
-    const actionButtons = document.querySelector('.action-buttons');
-    if (actionButtons) {
-        const backupBtn = document.createElement('button');
-        backupBtn.className = 'backup-btn';
-        backupBtn.textContent = '데이터 백업';
-        backupBtn.onclick = backupData;
-        backupBtn.style.marginRight = '10px';
-        
-        const restoreInput = document.createElement('input');
-        restoreInput.type = 'file';
-        restoreInput.accept = '.json';
-        restoreInput.style.display = 'none';
-        restoreInput.onchange = (e) => {
-            if (e.target.files.length > 0) {
-                if (confirm('기존 데이터를 복원하시겠습니까?')) {
-                    restoreData(e.target.files[0]);
-                }
-            }
-        };
-        
-        const restoreBtn = document.createElement('button');
-        restoreBtn.className = 'restore-btn';
-        restoreBtn.textContent = '데이터 복원';
-        restoreBtn.onclick = () => restoreInput.click();
-        
-        actionButtons.appendChild(backupBtn);
-        actionButtons.appendChild(restoreBtn);
-        actionButtons.appendChild(restoreInput);
     }
 });
 
@@ -535,68 +448,4 @@ function checkLoginStatus() {
         // 오류 발생 시도 로그인 페이지로 이동
         window.location.href = '/login';
     });
-}
-
-// 데이터 백업 함수
-async function backupData() {
-    try {
-        const response = await fetch('/urls', {
-            credentials: 'include'
-        });
-        if (!response.ok) throw new Error('URL 데이터 가져오기 실패');
-        const urls = await response.json();
-        
-        // 백업 데이터 생성
-        const backupData = {
-            timestamp: new Date().toISOString(),
-            urls: urls
-        };
-        
-        // JSON 파일로 다운로드
-        const blob = new Blob([JSON.stringify(backupData, null, 2)], { type: 'application/json' });
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `url_backup_${new Date().toISOString().slice(0,10)}.json`;
-        document.body.appendChild(a);
-        a.click();
-        window.URL.revokeObjectURL(url);
-        document.body.removeChild(a);
-        
-        alert('백업이 완료되었습니다.');
-    } catch (error) {
-        console.error('백업 중 오류:', error);
-        alert('백업 중 오류가 발생했습니다.');
-    }
-}
-
-// 데이터 복원 함수
-async function restoreData(file) {
-    try {
-        const text = await file.text();
-        const backupData = JSON.parse(text);
-        
-        // 백업 데이터 유효성 검사
-        if (!backupData || !backupData.urls || !backupData.timestamp) {
-            throw new Error('유효하지 않은 백업 파일입니다.');
-        }
-        
-        // 서버에 복원 요청
-        const response = await fetch('/api/restore', {
-            method: 'POST',
-            credentials: 'include',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(backupData)
-        });
-        
-        if (!response.ok) throw new Error('복원 실패');
-        
-        alert('데이터가 성공적으로 복원되었습니다.');
-        location.reload(); // 페이지 새로고침
-    } catch (error) {
-        console.error('복원 중 오류:', error);
-        alert('복원 중 오류가 발생했습니다: ' + error.message);
-    }
 } 
