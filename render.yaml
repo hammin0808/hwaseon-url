@@ -11,5 +11,9 @@ services:
         value: 5001
       - key: DOMAIN
         value: https://hwaseon-url.com
+      - key: MONGODB_URI
+        sync: false
+      - key: SESSION_SECRET
+        generateValue: true
     healthCheckPath: /
     autoDeploy: true 

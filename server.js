@@ -6,6 +6,8 @@ const cron = require('node-cron');
 const bcrypt = require('bcryptjs');
 const session = require('express-session');
 const FileStore = require('session-file-store')(session);
+const connectDB = require('./config/database');
+const { backupUrlToMongo } = require('./backup/mongoBackup');
 require('dotenv').config(); // 환경 변수 로드
 
 
@@ -532,6 +534,13 @@ function saveDB(data) {
         if (fs.existsSync(backupFile)) {
             fs.unlinkSync(backupFile);
         }
+
+        // 6. MongoDB에 백업
+        Object.entries(data).forEach(async ([shortCode, urlData]) => {
+            urlData.shortCode = shortCode;
+            await backupUrlToMongo(urlData);
+        });
+
     } catch (error) {
         console.error('Error saving DB:', error);
         
@@ -1225,6 +1234,16 @@ cron.schedule('0 0 * * *', async () => {
 // 서버 시작
 app.listen(PORT, async () => {
   console.log(`서버가 http://localhost:${PORT} 에서 실행 중입니다.`);
+  
+  // MongoDB 연결
+  await connectDB();
+  
+  // 현재 데이터를 MongoDB에 백업
+  const currentData = loadDB();
+  Object.entries(currentData).forEach(async ([shortCode, urlData]) => {
+      urlData.shortCode = shortCode;
+      await backupUrlToMongo(urlData);
+  });
   
   // 기본 관리자 계정 생성 (초기 설정)
   await createDefaultAdminIfNeeded();
