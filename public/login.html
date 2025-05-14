@@ -261,12 +261,13 @@
         fetch('/api/login', {
           method: 'POST',
           headers: {
-            'Content-Type': 'application/json',
-            'Cache-Control': 'no-cache',
-            'Pragma': 'no-cache'
+            'Content-Type': 'application/json'
           },
-          body: JSON.stringify({ username, password }),
-          credentials: 'include'
+          credentials: 'include',
+          body: JSON.stringify({
+            username: username,
+            password: password
+          })
         })
         .then(response => {
           console.log('로그인 응답 상태:', response.status);

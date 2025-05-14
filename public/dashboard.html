@@ -103,12 +103,7 @@
       
       // 사용자 정보 로드
       fetch('/api/me', {
-        method: 'GET',
-        credentials: 'include', // 세션 쿠키 포함
-        headers: {
-          'Cache-Control': 'no-cache',
-          'Pragma': 'no-cache'
-        }
+        credentials: 'include'
       })
         .then(response => {
           console.log('API 응답 상태:', response.status);
