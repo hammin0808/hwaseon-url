@@ -21,8 +21,8 @@ const USERS_FILE = './users.json';
 // CORS 설정
 app.use(cors({
     origin: process.env.NODE_ENV === 'production' 
-        ? ['https://hwaseon-url.onrender.com', 'https://hwaseon-url.com'] 
-        : ['http://localhost:5001'],
+        ? ['https://hwaseon-url.com', 'https://www.hwaseon-url.com']
+        : 'http://localhost:5001',
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization']
@@ -41,13 +41,17 @@ app.use(session({
         mongoUrl: process.env.MONGODB_URI,
         ttl: 24 * 60 * 60, // 24시간
         autoRemove: 'native',
-        touchAfter: 24 * 3600 // 24시간마다 세션 업데이트
+        touchAfter: 24 * 3600, // 24시간마다 세션 업데이트
+        crypto: {
+            secret: process.env.SESSION_SECRET || 'hwaseon-secret-key'
+        }
     }),
     cookie: {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         maxAge: 24 * 60 * 60 * 1000, // 24시간
-        sameSite: 'lax'
+        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+        domain: process.env.NODE_ENV === 'production' ? '.hwaseon-url.com' : undefined
     }
 }));
 
@@ -188,7 +192,7 @@ app.post('/api/admin/login', async (req, res) => {
   }
 });
 
-// 사용자 로그인 API
+// 로그인 API
 app.post('/api/login', async (req, res) => {
     const { username, password } = req.body;
     
@@ -238,7 +242,7 @@ app.post('/api/login', async (req, res) => {
             isAdmin: user.isAdmin
         };
         
-        // 세션 저장
+        // 세션 저장 완료 후 응답
         req.session.save(err => {
             if (err) {
                 console.error('세션 저장 오류:', err);
@@ -249,6 +253,10 @@ app.post('/api/login', async (req, res) => {
             }
             
             console.log('로그인 성공:', user.username, req.session.id);
+            
+            // 로그인 성공 시 리다이렉트 URL 결정
+            const redirectUrl = user.isAdmin ? '/admin' : '/dashboard';
+            
             res.json({
                 success: true,
                 user: {
@@ -256,7 +264,7 @@ app.post('/api/login', async (req, res) => {
                     email: user.email,
                     isAdmin: user.isAdmin
                 },
-                redirectTo: user.isAdmin ? '/admin' : '/dashboard'
+                redirectTo: redirectUrl
             });
         });
         
@@ -290,18 +298,21 @@ app.post('/api/logout', (req, res) => {
 app.get('/api/me', (req, res) => {
     console.log('사용자 정보 요청:', {
         sessionID: req.sessionID,
-        user: req.session.user ? req.session.user.username : 'none'
+        user: req.session.user ? req.session.user.username : 'none',
+        session: req.session
     });
     
     if (req.session.user) {
         res.json({ 
             success: true, 
-            user: req.session.user 
+            user: req.session.user,
+            isAuthenticated: true
         });
     } else {
         res.status(401).json({ 
             success: false, 
-            message: '로그인이 필요합니다.' 
+            message: '로그인이 필요합니다.',
+            isAuthenticated: false
         });
     }
 });
