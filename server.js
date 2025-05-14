@@ -39,7 +39,9 @@ app.use(session({
     saveUninitialized: false,
     store: MongoStore.create({
         mongoUrl: process.env.MONGODB_URI,
-        ttl: 24 * 60 * 60 // 24시간
+        ttl: 24 * 60 * 60, // 24시간
+        autoRemove: 'native',
+        touchAfter: 24 * 3600 // 24시간마다 세션 업데이트
     }),
     cookie: {
         httpOnly: true,
