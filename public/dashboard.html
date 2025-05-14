@@ -103,59 +103,55 @@
       
       // 사용자 정보 로드
       fetch('/api/me', {
-        credentials: 'include'
+        method: 'GET',
+        credentials: 'include',
+        headers: {
+          'Cache-Control': 'no-cache'
+        }
       })
-        .then(response => {
-          console.log('API 응답 상태:', response.status);
-          if (!response.ok) {
-            throw new Error('Not authorized');
-          }
-          return response.json();
-        })
-        .then(data => {
-          console.log('사용자 정보:', data);
-          if (data.success) {
-            userNameElement.textContent = data.user.username;
-            
-            // 관리자 표시
-            if (data.user.isAdmin) {
-              userIsAdminElement.style.display = 'inline-block';
-              // 관리자인 경우 계정관리 버튼 표시
-              adminPageBtn.style.display = 'inline-block';
-            }
-          } else {
-            // 로그인 페이지로 리다이렉트
-            console.log('로그인이 필요합니다.');
-            window.location.href = '/login';
-          }
-        })
-        .catch(error => {
-          console.error('Error loading user info:', error);
-          // 에러 시 로그인 페이지로 리다이렉트
-          console.log('로그인 페이지로 이동합니다.');
-          window.location.href = '/login';
-        });
+      .then(response => {
+        console.log('API 응답 상태:', response.status);
+        if (!response.ok) {
+          throw new Error('Not authorized');
+        }
+        return response.json();
+      })
+      .then(data => {
+        console.log('사용자 정보:', data);
+        if (!data.success || !data.isAuthenticated) {
+          console.log('인증되지 않은 사용자, 로그인 페이지로 이동');
+          window.location.replace('/login');
+          return;
+        }
+        
+        userNameElement.textContent = data.user.username;
+        
+        // 관리자 표시
+        if (data.user.isAdmin) {
+          userIsAdminElement.style.display = 'inline-block';
+          adminPageBtn.style.display = 'inline-block';
+        }
+      })
+      .catch(error => {
+        console.error('Error:', error);
+        window.location.replace('/login');
+      });
       
       // 로그아웃 기능
       logoutBtn.addEventListener('click', function() {
         fetch('/api/logout', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Cache-Control': 'no-cache'
-          },
-          credentials: 'include' // 세션 쿠키 포함
+          credentials: 'include'
         })
         .then(response => response.json())
         .then(data => {
           if (data.success) {
-            window.location.href = '/login';
-          } else {
-            console.error('Logout failed:', data.message);
+            window.location.replace('/login');
           }
         })
         .catch(error => {
-          console.error('Error during logout:', error);
+          console.error('Error:', error);
+          window.location.replace('/login');
         });
       });
       

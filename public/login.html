@@ -276,12 +276,9 @@
         .then(data => {
           console.log('로그인 응답 데이터:', data);
           if (data.success) {
-            console.log('로그인 성공, 대시보드로 이동');
-            // 로그인 성공 시 페이지 새로고침 후 대시보드로 이동
-            localStorage.setItem('loginSuccess', 'true');
-            setTimeout(() => {
-              window.location.href = '/dashboard';
-            }, 500); // 잠시 딜레이를 주어 세션이 저장되도록 함
+            console.log('로그인 성공, 리다이렉트 중...');
+            // 로그인 성공 시 즉시 리다이렉트
+            window.location.replace(data.redirectTo);
           } else {
             showError(data.message || '로그인에 실패했습니다.');
             userLoginBtn.disabled = false;
@@ -313,12 +310,10 @@
         fetch('/api/admin/login', {
           method: 'POST',
           headers: {
-            'Content-Type': 'application/json',
-            'Cache-Control': 'no-cache',
-            'Pragma': 'no-cache'
+            'Content-Type': 'application/json'
           },
-          body: JSON.stringify({ password: adminPassword }),
-          credentials: 'include'
+          credentials: 'include',
+          body: JSON.stringify({ password: adminPassword })
         })
         .then(response => {
           console.log('관리자 로그인 응답 상태:', response.status);
@@ -327,12 +322,9 @@
         .then(data => {
           console.log('관리자 로그인 응답 데이터:', data);
           if (data.success) {
-            console.log('관리자 로그인 성공, 관리자 페이지로 이동');
-            // 관리자 로그인 성공 시 로컬 스토리지에 성공 표시
-            localStorage.setItem('adminLoginSuccess', 'true');
-            setTimeout(() => {
-              window.location.href = '/admin';
-            }, 500); // 잠시 딜레이를 주어 세션이 저장되도록 함
+            console.log('관리자 로그인 성공, 리다이렉트 중...');
+            // 관리자 로그인 성공 시 즉시 리다이렉트
+            window.location.replace('/admin');
           } else {
             showError(data.message || '관리자 로그인에 실패했습니다.');
             adminLoginBtn.disabled = false;
