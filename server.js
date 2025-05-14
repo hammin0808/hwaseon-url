@@ -8,6 +8,7 @@ const cron = require('node-cron');
 const bcrypt = require('bcryptjs');
 
 
+
 const app = express(); 
 const PORT = process.env.PORT || 5001;
 const DB_FILE = './db.json';
@@ -419,31 +420,12 @@ app.delete('/api/admin/users/:userId', (req, res) => {
 app.get('/urls', (req, res) => {
     try {
         const db = loadDB();
-        let urls;
-
-        // 관리자인 경우 모든 URL 표시
-        if (req.session.user && req.session.user.isAdmin) {
-            urls = Object.entries(db).map(([shortCode, data]) => ({
-                shortCode,
-                ...data
-            }));
-        } 
-        // 일반 사용자인 경우 자신의 URL만 표시
-        else if (req.session.user) {
-            urls = Object.entries(db)
-                .filter(([_, data]) => data.creator === req.session.user.username)
-                .map(([shortCode, data]) => ({
-                    shortCode,
-                    ...data
-                }));
-        }
-        // 로그인하지 않은 경우
-        else {
-            return res.status(401).json({ error: '로그인이 필요합니다.' });
-        }
-
+        const urls = Object.entries(db).map(([shortCode, data]) => ({
+            shortCode,
+            ...data
+        }))
         // createdAt 기준으로 내림차순 정렬 (최신순)
-        urls.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
         
         res.json(urls);
     } catch (error) {
@@ -586,65 +568,58 @@ const BASE_URL = process.env.NODE_ENV === 'production'
   : `http://localhost:${PORT}`;
 
 // URL 단축 API - 사용자 정보 추가
-app.post('/api/shorten', async (req, res) => {
+app.post('/shorten', (req, res) => {
     try {
-        const { url } = req.body;
-        
-        if (!url) {
-            return res.status(400).json({ 
-                success: false, 
-                message: 'URL이 필요합니다.' 
-            });
+        const longUrl = req.body.url;
+        if (!longUrl) {
+            return res.status(400).json({ error: 'URL 누락' });
         }
 
         // URL 유효성 검사
-        try {
-            new URL(url);
-        } catch (err) {
-            return res.status(400).json({ 
-                success: false, 
-                message: '유효하지 않은 URL입니다.' 
-            });
+        const urlPattern = /^(https?:\/\/)?([\w.-]+)\.([a-z]{2,})(\/\S*)?$/i;
+        if (!urlPattern.test(longUrl)) {
+            return res.status(400).json({ error: '유효하지 않은 URL 형식입니다.' });
         }
 
-        // 단축 코드 생성
-        const shortCode = generateShortCode();
-        
-        // DB에서 현재 데이터 로드
         const db = loadDB();
+        let shortCode;
+        let isUnique = false;
         
-        // db.urls가 없으면 초기화
-        if (!db.urls) {
-            db.urls = [];
+        // 중복되지 않는 shortCode 생성
+        while (!isUnique) {
+            shortCode = generateShortCode();
+            if (!db[shortCode]) {
+                isUnique = true;
+            }
         }
-        
-        // 새로운 URL 정보 추가
-        const newUrl = {
-            shortCode,
-            originalUrl: url,
+
+        const ip = getClientIp(req);
+        const userId = req.session.user ? req.session.user.id : null;
+        const username = req.session.user ? req.session.user.username : null;
+
+        db[shortCode] = {
+            longUrl,
+            shortUrl: `${BASE_URL}/${shortCode}`,
+            todayVisits: 0,
+            totalVisits: 0,
             createdAt: new Date().toISOString(),
-            visits: 0,
-            lastVisit: null,
-            creator: req.session.user ? req.session.user.username : '익명'
+            lastReset: new Date().toISOString(),
+            ip,
+            userId,
+            username,
+            logs: []
         };
-        
-        db.urls.push(newUrl);
-        
-        // DB 저장
+
         saveDB(db);
-        
-        // 응답
-        res.json({
-            success: true,
-            shortUrl: `${req.protocol}://${req.get('host')}/${shortCode}`,
-            redirectUrl: url
+
+        res.json({ 
+            shortUrl: db[shortCode].shortUrl,
+            shortCode: shortCode,
+            username: username
         });
     } catch (error) {
-        console.error('URL 단축 에러:', error);
-        res.status(500).json({ 
-            success: false, 
-            message: '서버 오류가 발생했습니다.' 
-        });
+        console.error('Error:', error);
+        res.status(500).json({ error: '서버 오류' });
     }
 });
 
