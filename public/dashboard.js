@@ -11,18 +11,21 @@ async function copyToClipboard(text, buttonElement) {
 
         // Create and show the message below the button
         const messageDiv = document.createElement('div');
-        messageDiv.className = 'copy-message';
+        messageDiv.className = 'toast-message';
         messageDiv.style.cssText = `
-            font-size: 11px;
-            color: #4c6ef5;
-            margin-top: 2px;
-            line-height: 1;
-            position: absolute;
+            position: fixed;
+            bottom: 20px;
             left: 50%;
             transform: translateX(-50%);
-            white-space: nowrap;
+            background-color: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 12px 24px;
+            border-radius: 8px;
+            z-index: 1000;
+            animation: fadeInOut 2s ease-in-out;
         `;
         messageDiv.textContent = 'URL이 복사되었습니다';
+
         
         // Insert after the button
         const container = buttonElement.parentNode;
