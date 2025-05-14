@@ -423,7 +423,10 @@ app.get('/urls', (req, res) => {
         const urls = Object.entries(db).map(([shortCode, data]) => ({
             shortCode,
             ...data
-        }));
+        }))
+        // createdAt 기준으로 내림차순 정렬 (최신순)
+        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+        
         res.json(urls);
     } catch (error) {
         console.error('Error:', error);
