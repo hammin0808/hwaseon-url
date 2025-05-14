@@ -5,7 +5,7 @@ const path = require('path');
 const cron = require('node-cron');
 const bcrypt = require('bcryptjs');
 const session = require('express-session');
-const FileStore = require('session-file-store')(session);
+const MongoStore = require('connect-mongo');
 const connectDB = require('./config/database');
 const { backupUrlToMongo } = require('./backup/mongoBackup');
 require('dotenv').config(); // 환경 변수 로드
@@ -34,12 +34,16 @@ app.use(express.urlencoded({ extended: true }));
 
 // 세션 설정
 app.use(session({
-    secret: 'hwaseon-secret-key',
+    secret: process.env.SESSION_SECRET || 'hwaseon-secret-key',
     resave: false,
     saveUninitialized: false,
+    store: MongoStore.create({
+        mongoUrl: process.env.MONGODB_URI,
+        ttl: 24 * 60 * 60 // 24시간
+    }),
     cookie: {
         httpOnly: true,
-        secure: false,
+        secure: process.env.NODE_ENV === 'production',
         maxAge: 24 * 60 * 60 * 1000, // 24시간
         sameSite: 'lax'
     }
