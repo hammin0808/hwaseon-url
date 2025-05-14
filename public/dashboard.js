@@ -22,6 +22,7 @@ async function copyToClipboard(text, buttonElement) {
             transform: translateX(-50%);
             white-space: nowrap;
         `;
+        messageDiv.textContent = 'URL이 복사되었습니다';
         
         // Insert after the button
         const container = buttonElement.parentNode;
