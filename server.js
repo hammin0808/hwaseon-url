@@ -13,11 +13,6 @@ const {
     deleteUrlFromMongo, 
     deleteAllUrlsFromMongo 
 } = require('./backup/mongoBackup');
-const {
-    backupUserToMongo,
-    getAllUsersFromMongo,
-    deleteUserFromMongo
-} = require('./backup/userBackup');
 require('dotenv').config(); // 환경 변수 로드
 
 
@@ -835,7 +830,7 @@ app.put('/urls/:shortCode', (req, res) => {
 });
 
 // 단축 URL 리다이렉트
-app.get('/:shortCode', async (req, res, next) => {
+app.get('/:shortCode', (req, res, next) => {
     const { shortCode } = req.params;
     // 특정 경로는 무시하고 다음 미들웨어로 전달
     if (shortCode === 'dashboard' || 
@@ -869,14 +864,6 @@ app.get('/:shortCode', async (req, res, next) => {
         db[shortCode].totalVisits = (db[shortCode].totalVisits || 0) + 1;
         db[shortCode].logs.unshift({ ip, time: now.toISOString() });
         if (db[shortCode].logs.length > 100) db[shortCode].logs = db[shortCode].logs.slice(0, 100);
-        
-        // MongoDB 업데이트
-        try {
-            const urlData = { ...db[shortCode], shortCode };
-            await backupUrlToMongo(urlData);
-        } catch (error) {
-            console.error('MongoDB 업데이트 중 오류:', error);
-        }
     }
     // DB 저장
     saveDB(db);
@@ -1099,15 +1086,12 @@ app.post('/api/signup', async (req, res) => {
     
     userData.users.push(newUser);
     
-    // 로컬 파일에 저장
-    if (!saveUsers(userData)) {
-      return res.status(500).json({ success: false, message: '계정 생성 중 오류가 발생했습니다.' });
+    // 사용자 데이터 저장
+    if (saveUsers(userData)) {
+      res.json({ success: true, message: '사용자 계정이 생성되었습니다.' });
+    } else {
+      res.status(500).json({ success: false, message: '계정 생성 중 오류가 발생했습니다.' });
     }
-
-    // MongoDB에 백업
-    await backupUserToMongo(newUser);
-    
-    res.json({ success: true, message: '사용자 계정이 생성되었습니다.' });
   } catch (error) {
     console.error('Error in signup:', error);
     res.status(500).json({ success: false, message: '계정 생성 중 오류가 발생했습니다.' });
