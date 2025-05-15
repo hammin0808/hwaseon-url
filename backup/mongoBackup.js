@@ -51,8 +51,32 @@ async function getAllUrlsFromMongo() {
     }
 }
 
+// MongoDB에서 URL 삭제
+async function deleteUrlFromMongo(shortCode) {
+    try {
+        await Url.deleteOne({ shortCode });
+        return true;
+    } catch (error) {
+        console.error('MongoDB URL 삭제 중 오류:', error);
+        return false;
+    }
+}
+
+// MongoDB에서 모든 URL 삭제
+async function deleteAllUrlsFromMongo() {
+    try {
+        await Url.deleteMany({});
+        return true;
+    } catch (error) {
+        console.error('MongoDB 전체 URL 삭제 중 오류:', error);
+        return false;
+    }
+}
+
 module.exports = {
     backupUrlToMongo,
     getUrlFromMongo,
-    getAllUrlsFromMongo
+    getAllUrlsFromMongo,
+    deleteUrlFromMongo,
+    deleteAllUrlsFromMongo
 }; 

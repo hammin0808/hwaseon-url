@@ -14,6 +14,21 @@ const urlSchema = new mongoose.Schema({
         type: String,
         required: true
     },
+    createdAt: {
+        type: Date,
+        default: Date.now
+    },
+    userId: {
+        type: String,
+        default: null
+    },
+    username: {
+        type: String,
+        default: null
+    },
+    ip: {
+        type: String
+    },
     todayVisits: {
         type: Number,
         default: 0
@@ -22,18 +37,10 @@ const urlSchema = new mongoose.Schema({
         type: Number,
         default: 0
     },
-    createdAt: {
-        type: Date,
-        default: Date.now
-    },
     lastReset: {
         type: Date,
         default: Date.now
     },
-    ip: String,
-    userId: String,
-    username: String,
-    memo: String,
     logs: [{
         ip: String,
         time: {

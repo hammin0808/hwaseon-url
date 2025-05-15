@@ -7,7 +7,17 @@ const bcrypt = require('bcryptjs');
 const session = require('express-session');
 const FileStore = require('session-file-store')(session);
 const connectDB = require('./config/database');
-const { backupUrlToMongo, getAllUrlsFromMongo } = require('./backup/mongoBackup');
+const { 
+    backupUrlToMongo, 
+    getAllUrlsFromMongo, 
+    deleteUrlFromMongo, 
+    deleteAllUrlsFromMongo 
+} = require('./backup/mongoBackup');
+const {
+    backupUserToMongo,
+    getAllUsersFromMongo,
+    deleteUserFromMongo
+} = require('./backup/userBackup');
 require('dotenv').config(); // 환경 변수 로드
 
 
@@ -772,7 +782,7 @@ app.post('/shorten-multiple', (req, res) => {
 });
 
 // URL 삭제 API - 본인 또는 관리자만 삭제 가능
-app.delete('/urls/:shortCode', (req, res) => {
+app.delete('/urls/:shortCode', async (req, res) => {
   try {
     const { shortCode } = req.params;
     const db = loadDB();
@@ -790,8 +800,13 @@ app.delete('/urls/:shortCode', (req, res) => {
       return res.status(403).json({ error: '삭제 권한이 없습니다' });
     }
     
+    // MongoDB에서도 삭제
+    await deleteUrlFromMongo(shortCode);
+    
+    // 로컬 DB에서 삭제
     delete db[shortCode];
     saveDB(db);
+    
     res.json({ message: 'URL이 삭제되었습니다' });
   } catch (error) {
     console.error('Error:', error);
@@ -820,7 +835,7 @@ app.put('/urls/:shortCode', (req, res) => {
 });
 
 // 단축 URL 리다이렉트
-app.get('/:shortCode', (req, res, next) => {
+app.get('/:shortCode', async (req, res, next) => {
     const { shortCode } = req.params;
     // 특정 경로는 무시하고 다음 미들웨어로 전달
     if (shortCode === 'dashboard' || 
@@ -854,6 +869,14 @@ app.get('/:shortCode', (req, res, next) => {
         db[shortCode].totalVisits = (db[shortCode].totalVisits || 0) + 1;
         db[shortCode].logs.unshift({ ip, time: now.toISOString() });
         if (db[shortCode].logs.length > 100) db[shortCode].logs = db[shortCode].logs.slice(0, 100);
+        
+        // MongoDB 업데이트
+        try {
+            const urlData = { ...db[shortCode], shortCode };
+            await backupUrlToMongo(urlData);
+        } catch (error) {
+            console.error('MongoDB 업데이트 중 오류:', error);
+        }
     }
     // DB 저장
     saveDB(db);
@@ -934,7 +957,7 @@ app.post('/track/:shortCode', (req, res) => {
 });
 
 // 전체 URL 삭제 API - 관리자만 가능 또는 본인 것만 삭제
-app.delete('/delete-all', (req, res) => {
+app.delete('/delete-all', async (req, res) => {
     try {
         // 관리자 또는 로그인 확인
         const userId = req.session.user ? req.session.user.id : null;
@@ -948,6 +971,7 @@ app.delete('/delete-all', (req, res) => {
         
         if (isAdmin) {
             // 관리자는 모든 URL 삭제 가능
+            await deleteAllUrlsFromMongo(); // MongoDB에서 모든 데이터 삭제
             saveDB({});
             res.json({ success: true, message: '모든 URL이 삭제되었습니다.' });
         } else {
@@ -956,6 +980,9 @@ app.delete('/delete-all', (req, res) => {
             for (const [shortCode, data] of Object.entries(db)) {
                 if (data.userId !== userId) {
                     filteredDb[shortCode] = data;
+                } else {
+                    // MongoDB에서 해당 URL 삭제
+                    await deleteUrlFromMongo(shortCode);
                 }
             }
             saveDB(filteredDb);
@@ -1072,12 +1099,15 @@ app.post('/api/signup', async (req, res) => {
     
     userData.users.push(newUser);
     
-    // 사용자 데이터 저장
-    if (saveUsers(userData)) {
-      res.json({ success: true, message: '사용자 계정이 생성되었습니다.' });
-    } else {
-      res.status(500).json({ success: false, message: '계정 생성 중 오류가 발생했습니다.' });
+    // 로컬 파일에 저장
+    if (!saveUsers(userData)) {
+      return res.status(500).json({ success: false, message: '계정 생성 중 오류가 발생했습니다.' });
     }
+
+    // MongoDB에 백업
+    await backupUserToMongo(newUser);
+    
+    res.json({ success: true, message: '사용자 계정이 생성되었습니다.' });
   } catch (error) {
     console.error('Error in signup:', error);
     res.status(500).json({ success: false, message: '계정 생성 중 오류가 발생했습니다.' });
