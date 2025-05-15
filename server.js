@@ -1085,49 +1085,51 @@ app.post('/api/signup', async (req, res) => {
     return res.status(400).json({ success: false, message: '아이디와 비밀번호를 모두 입력해주세요.' });
   }
   
-  // 사용자 데이터 로드
-  const userData = loadUsers();
-  
-  // 아이디 중복 확인
-  if (userData.users.some(u => u.username === username)) {
-    return res.status(400).json({ success: false, message: '이미 사용 중인 아이디입니다.' });
-  }
-  
   try {
+    // 사용자 데이터 로드
+    const userData = loadUsers();
+    
+    // 아이디 중복 확인
+    if (userData.users.some(u => u.username === username)) {
+      return res.status(400).json({ success: false, message: '이미 사용 중인 아이디입니다.' });
+    }
+    
     // 비밀번호 해싱
     const saltRounds = 10;
     const passwordHash = await bcrypt.hash(password, saltRounds);
     
-    // 새 사용자 객체 생성
+    // 새 사용자 생성
     const newUser = {
-      id: Date.now().toString(), // 고유 ID 생성
+      id: Date.now().toString(),
       username,
       passwordHash,
       isAdmin: false,
       createdAt: new Date().toISOString()
     };
     
-    // 로컬 사용자 목록에 추가
-    userData.users.push(newUser);
-    
-    // 로컬 파일에 저장
-    if (!saveUsers(userData)) {
-      return res.status(500).json({ success: false, message: '계정 생성 중 오류가 발생했습니다.' });
-    }
-
-    // MongoDB에 백업
+    // MongoDB에 먼저 백업
     try {
       await backupUserToMongo(newUser);
       console.log('새 사용자 MongoDB 백업 완료:', username);
     } catch (mongoError) {
       console.error('MongoDB 백업 중 오류:', mongoError);
-      // MongoDB 백업 실패해도 계정 생성은 완료된 것으로 처리
+      return res.status(500).json({ success: false, message: '사용자 백업 중 오류가 발생했습니다.' });
     }
     
-    res.json({ success: true, message: '사용자 계정이 생성되었습니다.' });
+    // 로컬에 저장
+    userData.users.push(newUser);
+    if (!saveUsers(userData)) {
+      return res.status(500).json({ success: false, message: '사용자 저장에 실패했습니다.' });
+    }
+    
+    // 비밀번호 제외하고 응답
+    const userResponse = { ...newUser };
+    delete userResponse.passwordHash;
+    
+    res.json({ success: true, user: userResponse });
   } catch (error) {
-    console.error('Error in signup:', error);
-    res.status(500).json({ success: false, message: '계정 생성 중 오류가 발생했습니다.' });
+    console.error('Error creating user:', error);
+    res.status(500).json({ success: false, message: '사용자 생성 중 오류가 발생했습니다.' });
   }
 });
 

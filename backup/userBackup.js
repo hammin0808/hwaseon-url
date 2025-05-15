@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const User = require('../models/User');
 
 // User 스키마 정의
 const userSchema = new mongoose.Schema({
@@ -9,7 +10,7 @@ const userSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now }
 });
 
-const User = mongoose.model('User', userSchema);
+const UserModel = mongoose.model('User', userSchema);
 
 // MongoDB에 사용자 백업
 async function backupUserToMongo(user) {
@@ -23,7 +24,6 @@ async function backupUserToMongo(user) {
         { username: user.username },
         {
           $set: {
-            id: user.id,
             passwordHash: user.passwordHash,
             isAdmin: user.isAdmin,
             createdAt: user.createdAt
@@ -34,7 +34,6 @@ async function backupUserToMongo(user) {
     } else {
       // 새 사용자 생성
       const newUser = new User({
-        id: user.id,
         username: user.username,
         passwordHash: user.passwordHash,
         isAdmin: user.isAdmin,
