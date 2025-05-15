@@ -426,47 +426,40 @@ app.post('/api/admin/users', async (req, res) => {
   }
 });
 
-// 사용자 삭제 API (관리자만 사용 가능)
-app.delete('/api/admin/users/:userId', async (req, res) => {
+// 사용자 삭제 API (관리자 전용)
+app.delete('/api/admin/users/:userId', (req, res) => {
+  // 관리자 권한 확인
+  if (!req.session.user || !req.session.user.isAdmin) {
+    return res.status(403).json({ success: false, message: '관리자 권한이 필요합니다.' });
+  }
+  
   try {
-    const { userId } = req.params;
+    const userId = req.params.userId;
     
-    // 관리자 권한 확인
-    if (!req.session.user || !req.session.user.isAdmin) {
-      return res.status(403).json({ success: false, message: '관리자 권한이 필요합니다.' });
-    }
-    
+    // 사용자 데이터 로드
     const userData = loadUsers();
     
-    // 사용자 찾기
+    // 삭제할 사용자 찾기
     const userIndex = userData.users.findIndex(u => u.id === userId);
+    
     if (userIndex === -1) {
       return res.status(404).json({ success: false, message: '사용자를 찾을 수 없습니다.' });
     }
     
-    // 자기 자신은 삭제 불가능
-    if (req.session.user && req.session.user.id === userId) {
-      return res.status(403).json({ success: false, message: '자기 자신의 계정은 삭제할 수 없습니다.' });
+    // 관리자 계정은 삭제 불가
+    if (userData.users[userIndex].isAdmin) {
+      return res.status(400).json({ success: false, message: '관리자 계정은 삭제할 수 없습니다.' });
     }
     
-    // MongoDB에서 사용자 삭제
-    try {
-      await deleteUserFromMongo(userId);
-      console.log('MongoDB에서 사용자 삭제 완료:', userId);
-    } catch (mongoError) {
-      console.error('MongoDB 삭제 중 오류:', mongoError);
-      return res.status(500).json({ success: false, message: 'MongoDB에서 사용자 삭제 중 오류가 발생했습니다.' });
-    }
-    
-    // 로컬에서 사용자 삭제
+    // 사용자 삭제
     userData.users.splice(userIndex, 1);
     
-    // 저장
-    if (saveUsers(userData)) {
-      res.json({ success: true, message: '사용자가 삭제되었습니다.' });
-    } else {
-      res.status(500).json({ success: false, message: '사용자 삭제 중 오류가 발생했습니다.' });
+    // 사용자 데이터 저장
+    if (!saveUsers(userData)) {
+      return res.status(500).json({ success: false, message: '사용자 삭제 저장에 실패했습니다.' });
     }
+    
+    res.json({ success: true, message: '사용자가 삭제되었습니다.' });
   } catch (error) {
     console.error('Error deleting user:', error);
     res.status(500).json({ success: false, message: '사용자 삭제 중 오류가 발생했습니다.' });
@@ -1172,6 +1165,46 @@ app.get('/api/users', (req, res) => {
   } catch (error) {
     console.error('Error loading users:', error);
     res.status(500).json({ success: false, message: '사용자 목록 조회 중 오류가 발생했습니다.' });
+  }
+});
+
+// 사용자 삭제 API (관리자만 사용 가능)
+app.delete('/api/users/:userId', (req, res) => {
+  const { userId } = req.params;
+  const { adminKey } = req.body;
+  
+  // 관리자 키 확인
+  const ADMIN_KEY = 'hwaseon-admin-key';
+  if (adminKey !== ADMIN_KEY) {
+    return res.status(403).json({ success: false, message: '관리자 권한이 필요합니다.' });
+  }
+  
+  try {
+    const userData = loadUsers();
+    
+    // 사용자 찾기
+    const userIndex = userData.users.findIndex(u => u.id === userId);
+    if (userIndex === -1) {
+      return res.status(404).json({ success: false, message: '사용자를 찾을 수 없습니다.' });
+    }
+    
+    // 자기 자신은 삭제 불가능
+    if (req.session.user && req.session.user.id === userId) {
+      return res.status(403).json({ success: false, message: '자기 자신의 계정은 삭제할 수 없습니다.' });
+    }
+    
+    // 사용자 삭제
+    userData.users.splice(userIndex, 1);
+    
+    // 저장
+    if (saveUsers(userData)) {
+      res.json({ success: true, message: '사용자가 삭제되었습니다.' });
+    } else {
+      res.status(500).json({ success: false, message: '사용자 삭제 중 오류가 발생했습니다.' });
+    }
+  } catch (error) {
+    console.error('Error deleting user:', error);
+    res.status(500).json({ success: false, message: '사용자 삭제 중 오류가 발생했습니다.' });
   }
 });
 
