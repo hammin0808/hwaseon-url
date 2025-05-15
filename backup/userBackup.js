@@ -5,17 +5,15 @@ const User = require('../models/user');
 async function backupUserToMongo(userData) {
     try {
         const user = new User({
-            id: userData.id,
             username: userData.username,
             passwordHash: userData.passwordHash,
-            email: userData.email || null,
             isAdmin: userData.isAdmin || false,
             createdAt: userData.createdAt || new Date()
         });
 
         // upsert 옵션을 사용하여 이미 존재하면 업데이트, 없으면 생성
         await User.findOneAndUpdate(
-            { id: userData.id },
+            { username: userData.username },
             user.toObject(),
             { upsert: true, new: true }
         );
@@ -38,9 +36,9 @@ async function getAllUsersFromMongo() {
 }
 
 // MongoDB에서 사용자 삭제
-async function deleteUserFromMongo(userId) {
+async function deleteUserFromMongo(username) {
     try {
-        await User.deleteOne({ id: userId });
+        await User.deleteOne({ username });
         return true;
     } catch (error) {
         console.error('MongoDB 사용자 삭제 중 오류:', error);

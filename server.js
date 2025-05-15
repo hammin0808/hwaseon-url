@@ -1065,13 +1065,10 @@ app.get('/api/last-crawled', (req, res) => {
 
 // 회원가입 처리 API (관리자만 사용 가능)
 app.post('/api/signup', async (req, res) => {
-  const { username, password, email, adminKey, isAdmin } = req.body;
+  const { username, password } = req.body;
   
-  // 관리자 키 확인 (실제 사용 시 보안 강화 필요)
-  const ADMIN_KEY = 'hwaseon-admin-key';
-  const isAdminRequest = adminKey === ADMIN_KEY;
-  
-  if (!isAdminRequest) {
+  // 관리자 권한 확인
+  if (!req.session.user || !req.session.user.isAdmin) {
     return res.status(403).json({ success: false, message: '관리자 권한이 필요합니다.' });
   }
   
@@ -1094,11 +1091,9 @@ app.post('/api/signup', async (req, res) => {
     
     // 사용자 추가
     const newUser = {
-      id: Date.now().toString(),
       username,
       passwordHash,
-      email: email || '',
-      isAdmin: isAdmin === true,
+      isAdmin: false,
       createdAt: new Date().toISOString()
     };
     
@@ -1332,7 +1327,12 @@ app.listen(PORT, async () => {
     const mongoUsers = await getAllUsersFromMongo();
     if (mongoUsers && mongoUsers.length > 0) {
       // MongoDB 사용자 데이터를 로컬에 동기화
-      const userData = { users: mongoUsers };
+      const userData = { users: mongoUsers.map(user => ({
+        username: user.username,
+        passwordHash: user.passwordHash,
+        isAdmin: user.isAdmin,
+        createdAt: user.createdAt
+      }))};
       saveUsers(userData);
       console.log('MongoDB에서 사용자 데이터 복원 완료');
     } else {
