@@ -1,16 +1,27 @@
 const mongoose = require('mongoose');
-const User = require('../models/User');
 
-// User 스키마 정의
+// User 모델 정의
 const userSchema = new mongoose.Schema({
-  id: { type: String, required: true },
-  username: { type: String, unique: true, required: true },
-  passwordHash: { type: String, required: true },
-  isAdmin: { type: Boolean, default: false },
-  createdAt: { type: Date, default: Date.now }
+  username: {
+    type: String,
+    required: true,
+    unique: true
+  },
+  passwordHash: {
+    type: String,
+    required: true
+  },
+  isAdmin: {
+    type: Boolean,
+    default: false
+  },
+  createdAt: {
+    type: Date,
+    default: Date.now
+  }
 });
 
-const UserModel = mongoose.model('User', userSchema);
+const User = mongoose.model('User', userSchema);
 
 // MongoDB에 사용자 백업
 async function backupUserToMongo(user) {
