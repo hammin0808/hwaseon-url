@@ -1091,14 +1091,16 @@ app.post('/api/signup', async (req, res) => {
     const saltRounds = 10;
     const passwordHash = await bcrypt.hash(password, saltRounds);
     
-    // 사용자 추가
+    // 새 사용자 객체 생성
     const newUser = {
+      id: Date.now().toString(), // 고유 ID 생성
       username,
       passwordHash,
       isAdmin: false,
       createdAt: new Date().toISOString()
     };
     
+    // 로컬 사용자 목록에 추가
     userData.users.push(newUser);
     
     // 로컬 파일에 저장
@@ -1107,7 +1109,13 @@ app.post('/api/signup', async (req, res) => {
     }
 
     // MongoDB에 백업
-    await backupUserToMongo(newUser);
+    try {
+      await backupUserToMongo(newUser);
+      console.log('새 사용자 MongoDB 백업 완료:', username);
+    } catch (mongoError) {
+      console.error('MongoDB 백업 중 오류:', mongoError);
+      // MongoDB 백업 실패해도 계정 생성은 완료된 것으로 처리
+    }
     
     res.json({ success: true, message: '사용자 계정이 생성되었습니다.' });
   } catch (error) {
