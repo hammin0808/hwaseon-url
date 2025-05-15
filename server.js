@@ -1287,6 +1287,8 @@ cron.schedule('0 0 * * *', async () => {
     timezone: 'Asia/Seoul'
 });
 
+//
+
 // 기본 관리자 계정 생성 함수
 async function createDefaultAdminIfNeeded() {
   try {
