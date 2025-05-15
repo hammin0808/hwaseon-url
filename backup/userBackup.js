@@ -2,11 +2,11 @@ const mongoose = require('mongoose');
 
 // User 스키마 정의
 const userSchema = new mongoose.Schema({
-  id: String,
-  username: { type: String, unique: true },
-  passwordHash: String,
-  isAdmin: Boolean,
-  createdAt: Date
+  id: { type: String, required: true },
+  username: { type: String, unique: true, required: true },
+  passwordHash: { type: String, required: true },
+  isAdmin: { type: Boolean, default: false },
+  createdAt: { type: Date, default: Date.now }
 });
 
 const User = mongoose.model('User', userSchema);
@@ -18,18 +18,15 @@ async function backupUserToMongo(user) {
     const existingUser = await User.findOne({ username: user.username });
     
     if (existingUser) {
-      // 기존 사용자 업데이트
-      await User.updateOne(
-        { username: user.username },
-        {
-          $set: {
-            id: user.id,
-            passwordHash: user.passwordHash,
-            isAdmin: user.isAdmin,
-            createdAt: user.createdAt
-          }
-        }
-      );
+      // 기존 사용자 업데이트 (_id 필드 제외)
+      const updateData = {
+        id: user.id,
+        passwordHash: user.passwordHash,
+        isAdmin: user.isAdmin,
+        createdAt: user.createdAt
+      };
+      
+      await User.updateOne({ username: user.username }, { $set: updateData });
       console.log(`사용자 업데이트 완료: ${user.username}`);
     } else {
       // 새 사용자 생성
@@ -40,6 +37,7 @@ async function backupUserToMongo(user) {
         isAdmin: user.isAdmin,
         createdAt: user.createdAt
       });
+      
       await newUser.save();
       console.log(`새 사용자 생성 완료: ${user.username}`);
     }

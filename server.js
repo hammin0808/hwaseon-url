@@ -364,7 +364,7 @@ app.get('/api/admin/users', (req, res) => {
   }
 });
 
-// 사용자 생성 API (관리자 전용)
+// 사용자 생성 API (관리자만 사용 가능)
 app.post('/api/admin/users', async (req, res) => {
   // 관리자 권한 확인
   if (!req.session.user || !req.session.user.isAdmin) {
@@ -400,10 +400,17 @@ app.post('/api/admin/users', async (req, res) => {
       createdAt: new Date().toISOString()
     };
     
-    // 사용자 추가
-    userData.users.push(newUser);
+    // MongoDB에 먼저 백업
+    try {
+      await backupUserToMongo(newUser);
+      console.log('새 사용자 MongoDB 백업 완료:', username);
+    } catch (mongoError) {
+      console.error('MongoDB 백업 중 오류:', mongoError);
+      return res.status(500).json({ success: false, message: '사용자 백업 중 오류가 발생했습니다.' });
+    }
     
-    // 사용자 데이터 저장
+    // 로컬에 저장
+    userData.users.push(newUser);
     if (!saveUsers(userData)) {
       return res.status(500).json({ success: false, message: '사용자 저장에 실패했습니다.' });
     }
