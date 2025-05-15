@@ -11,10 +11,16 @@ const {
     backupUrlToMongo, 
     getAllUrlsFromMongo, 
     deleteUrlFromMongo, 
-    deleteAllUrlsFromMongo 
+    deleteAllUrlsFromMongo,
+    updateUrlStats 
 } = require('./backup/mongoBackup');
+const {
+    backupUserToMongo,
+    getAllUsersFromMongo,
+    deleteUserFromMongo
+} = require('./backup/userBackup');
 require('dotenv').config(); // 환경 변수 로드
-//
+
 
 const app = express();
 const PORT = process.env.PORT || 5001;
@@ -830,7 +836,7 @@ app.put('/urls/:shortCode', (req, res) => {
 });
 
 // 단축 URL 리다이렉트
-app.get('/:shortCode', (req, res, next) => {
+app.get('/:shortCode', async (req, res, next) => {
     const { shortCode } = req.params;
     // 특정 경로는 무시하고 다음 미들웨어로 전달
     if (shortCode === 'dashboard' || 
@@ -862,8 +868,20 @@ app.get('/:shortCode', (req, res, next) => {
     if (!isBot) {
         db[shortCode].todayVisits = (db[shortCode].todayVisits || 0) + 1;
         db[shortCode].totalVisits = (db[shortCode].totalVisits || 0) + 1;
-        db[shortCode].logs.unshift({ ip, time: now.toISOString() });
+        const newLog = { ip, time: now.toISOString() };
+        db[shortCode].logs.unshift(newLog);
         if (db[shortCode].logs.length > 100) db[shortCode].logs = db[shortCode].logs.slice(0, 100);
+        
+        // MongoDB 업데이트
+        try {
+            await updateUrlStats(shortCode, {
+                todayVisits: db[shortCode].todayVisits,
+                totalVisits: db[shortCode].totalVisits,
+                newLog
+            });
+        } catch (error) {
+            console.error('MongoDB 업데이트 중 오류:', error);
+        }
     }
     // DB 저장
     saveDB(db);
@@ -1086,12 +1104,15 @@ app.post('/api/signup', async (req, res) => {
     
     userData.users.push(newUser);
     
-    // 사용자 데이터 저장
-    if (saveUsers(userData)) {
-      res.json({ success: true, message: '사용자 계정이 생성되었습니다.' });
-    } else {
-      res.status(500).json({ success: false, message: '계정 생성 중 오류가 발생했습니다.' });
+    // 로컬 파일에 저장
+    if (!saveUsers(userData)) {
+      return res.status(500).json({ success: false, message: '계정 생성 중 오류가 발생했습니다.' });
     }
+
+    // MongoDB에 백업
+    await backupUserToMongo(newUser);
+    
+    res.json({ success: true, message: '사용자 계정이 생성되었습니다.' });
   } catch (error) {
     console.error('Error in signup:', error);
     res.status(500).json({ success: false, message: '계정 생성 중 오류가 발생했습니다.' });
@@ -1279,7 +1300,7 @@ app.listen(PORT, async () => {
   await connectDB();
   
   try {
-    // MongoDB에서 데이터 로드
+    // MongoDB에서 URL 데이터 로드
     const mongoData = await getAllUrlsFromMongo();
     if (mongoData && mongoData.length > 0) {
       // MongoDB 데이터를 로컬에 동기화
@@ -1305,6 +1326,22 @@ app.listen(PORT, async () => {
         urlData.shortCode = shortCode;
         await backupUrlToMongo(urlData);
       });
+    }
+
+    // MongoDB에서 사용자 데이터 로드
+    const mongoUsers = await getAllUsersFromMongo();
+    if (mongoUsers && mongoUsers.length > 0) {
+      // MongoDB 사용자 데이터를 로컬에 동기화
+      const userData = { users: mongoUsers };
+      saveUsers(userData);
+      console.log('MongoDB에서 사용자 데이터 복원 완료');
+    } else {
+      // MongoDB가 비어있을 경우에만 로컬 사용자 데이터를 MongoDB에 백업
+      const currentUsers = loadUsers();
+      for (const user of currentUsers.users) {
+        await backupUserToMongo(user);
+      }
+      console.log('로컬 사용자 데이터를 MongoDB에 백업 완료');
     }
   } catch (error) {
     console.error('데이터 동기화 중 오류:', error);

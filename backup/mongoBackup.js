@@ -14,6 +14,7 @@ async function backupUrlToMongo(urlData) {
             ip: urlData.ip,
             todayVisits: urlData.todayVisits || 0,
             totalVisits: urlData.totalVisits || 0,
+            lastReset: urlData.lastReset || new Date(),
             logs: urlData.logs || []
         });
 
@@ -27,6 +28,40 @@ async function backupUrlToMongo(urlData) {
         return true;
     } catch (error) {
         console.error('MongoDB 백업 중 오류:', error);
+        return false;
+    }
+}
+
+// URL 방문 통계 업데이트
+async function updateUrlStats(shortCode, { todayVisits, totalVisits, newLog }) {
+    try {
+        const update = {
+            $set: {
+                todayVisits,
+                totalVisits,
+                lastReset: new Date()
+            }
+        };
+
+        if (newLog) {
+            update.$push = {
+                logs: {
+                    $each: [newLog],
+                    $position: 0,
+                    $slice: 100 // 최대 100개 로그만 유지
+                }
+            };
+        }
+
+        await Url.findOneAndUpdate(
+            { shortCode },
+            update,
+            { new: true }
+        );
+
+        return true;
+    } catch (error) {
+        console.error('MongoDB 방문 통계 업데이트 중 오류:', error);
         return false;
     }
 }
@@ -78,5 +113,6 @@ module.exports = {
     getUrlFromMongo,
     getAllUrlsFromMongo,
     deleteUrlFromMongo,
-    deleteAllUrlsFromMongo
+    deleteAllUrlsFromMongo,
+    updateUrlStats
 }; 
