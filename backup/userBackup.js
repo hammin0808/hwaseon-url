@@ -18,16 +18,19 @@ async function backupUserToMongo(user) {
     const existingUser = await User.findOne({ username: user.username });
     
     if (existingUser) {
-      // 기존 사용자 업데이트 (_id 필드 제외)
-      const updateData = {
-        id: user.id,
-        passwordHash: user.passwordHash,
-        isAdmin: user.isAdmin,
-        createdAt: user.createdAt
-      };
-      
-      await User.updateOne({ username: user.username }, { $set: updateData });
-      console.log(`사용자 업데이트 완료: ${user.username}`);
+      // 기존 사용자 업데이트
+      await User.updateOne(
+        { username: user.username },
+        {
+          $set: {
+            id: user.id,
+            passwordHash: user.passwordHash,
+            isAdmin: user.isAdmin,
+            createdAt: user.createdAt
+          }
+        }
+      );
+      console.log(`기존 사용자 업데이트 완료: ${user.username}`);
     } else {
       // 새 사용자 생성
       const newUser = new User({
@@ -37,7 +40,6 @@ async function backupUserToMongo(user) {
         isAdmin: user.isAdmin,
         createdAt: user.createdAt
       });
-      
       await newUser.save();
       console.log(`새 사용자 생성 완료: ${user.username}`);
     }
