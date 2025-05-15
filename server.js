@@ -1350,14 +1350,19 @@ app.listen(PORT, async () => {
 
     // MongoDB에서 사용자 데이터 먼저 로드
     const mongoUsers = await getAllUsersFromMongo();
+    console.log('MongoDB에서 로드된 사용자 데이터:', mongoUsers);
+    
     if (mongoUsers && mongoUsers.length > 0) {
       // MongoDB 사용자 데이터를 로컬에 동기화
       const userData = { users: mongoUsers.map(user => ({
+        id: user.id || Date.now().toString(), // ID가 없는 경우 생성
         username: user.username,
         passwordHash: user.passwordHash,
         isAdmin: user.isAdmin,
-        createdAt: user.createdAt
+        createdAt: user.createdAt || new Date().toISOString()
       }))};
+      
+      // users.json에 저장
       saveUsers(userData);
       console.log('MongoDB에서 사용자 데이터 복원 완료:', mongoUsers.length, '명');
     } else {
