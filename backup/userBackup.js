@@ -24,29 +24,28 @@ async function backupUserToMongo(user) {
       user.createdAt = new Date().toISOString();
     }
 
-    const existingUser = await User.findOne({ username: user.username });
-    if (existingUser) {
-      // 기존 사용자 업데이트
-      await User.updateOne(
-        { username: user.username },
-        {
-          id: user.id,
-          passwordHash: user.passwordHash,
-          isAdmin: user.isAdmin,
-          createdAt: user.createdAt
-        }
-      );
+    // 업데이트할 데이터 준비
+    const userData = {
+      id: user.id,
+      username: user.username,
+      passwordHash: user.passwordHash,
+      isAdmin: user.isAdmin,
+      createdAt: user.createdAt
+    };
+
+    // findOneAndUpdate 대신 updateOne 사용
+    const result = await User.updateOne(
+      { username: user.username },
+      userData,
+      { upsert: true } // 문서가 없으면 생성
+    );
+
+    if (result.upsertedCount > 0) {
+      console.log(`새 사용자 생성 완료: ${user.username}`);
+    } else if (result.modifiedCount > 0) {
       console.log(`사용자 업데이트 완료: ${user.username}`);
     } else {
-      // 새 사용자 생성
-      await User.create({
-        id: user.id,
-        username: user.username,
-        passwordHash: user.passwordHash,
-        isAdmin: user.isAdmin,
-        createdAt: user.createdAt
-      });
-      console.log(`새 사용자 백업 완료: ${user.username}`);
+      console.log(`사용자 데이터 변경 없음: ${user.username}`);
     }
   } catch (error) {
     console.error('MongoDB 사용자 백업 중 오류:', error);
