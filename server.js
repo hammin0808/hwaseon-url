@@ -1287,16 +1287,83 @@ cron.schedule('0 0 * * *', async () => {
     timezone: 'Asia/Seoul'
 });
 
+// 기본 관리자 계정 생성 함수
+async function createDefaultAdminIfNeeded() {
+  try {
+    const userData = loadUsers();
+    
+    // 이미 사용자가 있는지 확인
+    if (userData.users.length > 0) {
+      return; // 이미 사용자가 있으면 생성하지 않음
+    }
+    
+    // 관리자 계정 생성
+    const adminUsername = 'hwaseonad';
+    const adminPassword = 'hwaseon@00';
+    
+    // 비밀번호 해싱
+    const saltRounds = 10;
+    const passwordHash = await bcrypt.hash(adminPassword, saltRounds);
+    
+    // 관리자 사용자 추가
+    const adminUser = {
+      username: adminUsername,
+      passwordHash,
+      isAdmin: true,
+      createdAt: new Date().toISOString()
+    };
+    
+    userData.users.push(adminUser);
+    
+    // 로컬 파일에 저장
+    if (!saveUsers(userData)) {
+      console.error('기본 관리자 계정 생성 중 오류가 발생했습니다.');
+      return;
+    }
 
+    // MongoDB에 백업
+    try {
+      await backupUserToMongo(adminUser);
+      console.log('기본 관리자 계정이 MongoDB에 백업되었습니다.');
+    } catch (error) {
+      console.error('MongoDB 백업 중 오류:', error);
+    }
+    
+    console.log('기본 관리자 계정이 생성되었습니다:');
+    console.log(`아이디: ${adminUsername}`);
+    console.log(`비밀번호: ${adminPassword}`);
+  } catch (error) {
+    console.error('기본 관리자 계정 생성 중 오류:', error);
+  }
+}
 
 // 서버 시작
 app.listen(PORT, async () => {
   console.log(`서버가 http://localhost:${PORT} 에서 실행 중입니다.`);
   
-  // MongoDB 연결
-  await connectDB();
-  
   try {
+    // MongoDB 연결
+    await connectDB();
+    console.log('MongoDB 연결 성공');
+
+    // MongoDB에서 사용자 데이터 먼저 로드
+    const mongoUsers = await getAllUsersFromMongo();
+    if (mongoUsers && mongoUsers.length > 0) {
+      // MongoDB 사용자 데이터를 로컬에 동기화
+      const userData = { users: mongoUsers.map(user => ({
+        username: user.username,
+        passwordHash: user.passwordHash,
+        isAdmin: user.isAdmin,
+        createdAt: user.createdAt
+      }))};
+      saveUsers(userData);
+      console.log('MongoDB에서 사용자 데이터 복원 완료:', mongoUsers.length, '명');
+    } else {
+      console.log('MongoDB에 사용자 데이터가 없습니다. 기본 관리자 계정을 생성합니다.');
+      // 기본 관리자 계정 생성 (초기 설정)
+      await createDefaultAdminIfNeeded();
+    }
+
     // MongoDB에서 URL 데이터 로드
     const mongoData = await getAllUrlsFromMongo();
     if (mongoData && mongoData.length > 0) {
@@ -1316,83 +1383,18 @@ app.listen(PORT, async () => {
         };
       });
       saveDB(localData);
+      console.log('MongoDB에서 URL 데이터 복원 완료:', mongoData.length, '개');
     } else {
       // MongoDB가 비어있을 경우에만 로컬 데이터를 MongoDB에 백업
       const currentData = loadDB();
-      Object.entries(currentData).forEach(async ([shortCode, urlData]) => {
+      const entries = Object.entries(currentData);
+      for (const [shortCode, urlData] of entries) {
         urlData.shortCode = shortCode;
         await backupUrlToMongo(urlData);
-      });
-    }
-
-    // MongoDB에서 사용자 데이터 로드
-    const mongoUsers = await getAllUsersFromMongo();
-    if (mongoUsers && mongoUsers.length > 0) {
-      // MongoDB 사용자 데이터를 로컬에 동기화
-      const userData = { users: mongoUsers.map(user => ({
-        username: user.username,
-        passwordHash: user.passwordHash,
-        isAdmin: user.isAdmin,
-        createdAt: user.createdAt
-      }))};
-      saveUsers(userData);
-      console.log('MongoDB에서 사용자 데이터 복원 완료');
-    } else {
-      // MongoDB가 비어있을 경우에만 로컬 사용자 데이터를 MongoDB에 백업
-      const currentUsers = loadUsers();
-      for (const user of currentUsers.users) {
-        await backupUserToMongo(user);
       }
-      console.log('로컬 사용자 데이터를 MongoDB에 백업 완료');
+      console.log('로컬 URL 데이터를 MongoDB에 백업 완료:', entries.length, '개');
     }
   } catch (error) {
-    console.error('데이터 동기화 중 오류:', error);
+    console.error('서버 시작 중 오류:', error);
   }
-  
-  // 기본 관리자 계정 생성 (초기 설정)
-  await createDefaultAdminIfNeeded();
 });
-
-// 기본 관리자 계정 생성 함수
-async function createDefaultAdminIfNeeded() {
-  try {
-    const userData = loadUsers();
-    
-    // 이미 사용자가 있는지 확인
-    if (userData.users.length > 0) {
-      return; // 이미 사용자가 있으면 생성하지 않음
-    }
-    
-    // 관리자 계정 생성
-    const adminUsername = 'hwaseonad';
-    const adminPassword = 'hwaseon@00';
-    const adminEmail = 'gt.min@hawseon.com';
-    
-    // 비밀번호 해싱
-    const saltRounds = 10;
-    const passwordHash = await bcrypt.hash(adminPassword, saltRounds);
-    
-    // 관리자 사용자 추가
-    const adminUser = {
-      id: Date.now().toString(),
-      username: adminUsername,
-      passwordHash,
-      email: adminEmail,
-      isAdmin: true,
-      createdAt: new Date().toISOString()
-    };
-    
-    userData.users.push(adminUser);
-    
-    // 사용자 데이터 저장
-    if (saveUsers(userData)) {
-      console.log('기본 관리자 계정이 생성되었습니다:');
-      console.log(`아이디: ${adminUsername}`);
-      console.log(`비밀번호: ${adminPassword}`);
-    } else {
-      console.error('기본 관리자 계정 생성 중 오류가 발생했습니다.');
-    }
-  } catch (error) {
-    console.error('기본 관리자 계정 생성 중 오류:', error);
-  }
-}
