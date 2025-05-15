@@ -31,7 +31,7 @@ app.use(cors({
 // body parser 설정
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-
+//
 // 세션 설정
 app.use(session({
     secret: 'hwaseon-secret-key',
