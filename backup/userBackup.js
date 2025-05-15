@@ -4,19 +4,31 @@ const User = require('../models/user');
 // MongoDB에 사용자 백업
 async function backupUserToMongo(user) {
   try {
+    // 필수 필드 확인
+    if (!user.id) {
+      user.id = Date.now().toString();
+    }
+
     // MongoDB의 immutable 필드 보호를 위해 _id 무조건 제거
     const safeUser = {
+      id: user.id,
       username: user.username,
       passwordHash: user.passwordHash,
-      isAdmin: user.isAdmin,
-      createdAt: user.createdAt
+      email: user.email || null,
+      isAdmin: user.isAdmin || false,
+      createdAt: user.createdAt || new Date()
     };
 
-    const existingUser = await User.findOne({ username: user.username });
+    const existingUser = await User.findOne({ 
+      $or: [
+        { username: user.username },
+        { id: user.id }
+      ]
+    });
 
     if (existingUser) {
       await User.updateOne(
-        { username: user.username },
+        { id: existingUser.id },
         { $set: safeUser }
       );
       console.log(`기존 사용자 업데이트 완료: ${user.username}`);
@@ -30,7 +42,6 @@ async function backupUserToMongo(user) {
     throw error;
   }
 }
-
 
 // MongoDB에서 모든 사용자 가져오기
 async function getAllUsersFromMongo() {
@@ -46,6 +57,11 @@ async function getAllUsersFromMongo() {
 // MongoDB에서 사용자 삭제
 async function deleteUserFromMongo(username) {
   try {
+    const user = await User.findOne({ username });
+    if (!user) {
+      console.log(`사용자를 찾을 수 없음: ${username}`);
+      return;
+    }
     await User.deleteOne({ username });
     console.log(`사용자 삭제 완료: ${username}`);
   } catch (error) {
