@@ -907,4 +907,27 @@ body {
   padding: 2px 5px;
   border-radius: 3px;
   margin-right: 5px;
+}
+
+.top-nav {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    margin-bottom: 20px;
+}
+
+.image-hosting-btn {
+    padding: 8px 16px;
+    background-color: #28a745;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.9em;
+    transition: background-color 0.3s ease;
+}
+
+.image-hosting-btn:hover {
+    background-color: #218838;
 } 
