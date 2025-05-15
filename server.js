@@ -427,7 +427,7 @@ app.post('/api/admin/users', async (req, res) => {
 });
 
 // 사용자 삭제 API (관리자 전용)
-app.delete('/api/admin/users/:userId', (req, res) => {
+app.delete('/api/admin/users/:userId', async (req, res) => {
   // 관리자 권한 확인
   if (!req.session.user || !req.session.user.isAdmin) {
     return res.status(403).json({ success: false, message: '관리자 권한이 필요합니다.' });
@@ -451,7 +451,16 @@ app.delete('/api/admin/users/:userId', (req, res) => {
       return res.status(400).json({ success: false, message: '관리자 계정은 삭제할 수 없습니다.' });
     }
     
-    // 사용자 삭제
+    // MongoDB에서 사용자 삭제
+    try {
+      await deleteUserFromMongo(userId);
+      console.log('MongoDB에서 사용자 삭제 완료:', userId);
+    } catch (mongoError) {
+      console.error('MongoDB 삭제 중 오류:', mongoError);
+      return res.status(500).json({ success: false, message: 'MongoDB에서 사용자 삭제 중 오류가 발생했습니다.' });
+    }
+    
+    // 로컬에서 사용자 삭제
     userData.users.splice(userIndex, 1);
     
     // 사용자 데이터 저장
