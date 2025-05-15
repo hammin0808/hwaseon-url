@@ -7,7 +7,7 @@ const bcrypt = require('bcryptjs');
 const session = require('express-session');
 const FileStore = require('session-file-store')(session);
 const connectDB = require('./config/database');
-const { backupUrlToMongo } = require('./backup/mongoBackup');
+const { backupUrlToMongo, getAllUrlsFromMongo } = require('./backup/mongoBackup');
 require('dotenv').config(); // 환경 변수 로드
 
 
@@ -1264,12 +1264,37 @@ app.listen(PORT, async () => {
   // MongoDB 연결
   await connectDB();
   
-  // 현재 데이터를 MongoDB에 백업
-  const currentData = loadDB();
-  Object.entries(currentData).forEach(async ([shortCode, urlData]) => {
-      urlData.shortCode = shortCode;
-      await backupUrlToMongo(urlData);
-  });
+  try {
+    // MongoDB에서 데이터 로드
+    const mongoData = await getAllUrlsFromMongo();
+    if (mongoData && mongoData.length > 0) {
+      // MongoDB 데이터를 로컬에 동기화
+      const localData = {};
+      mongoData.forEach(url => {
+        localData[url.shortCode] = {
+          longUrl: url.longUrl,
+          shortUrl: url.shortUrl,
+          createdAt: url.createdAt,
+          userId: url.userId,
+          username: url.username,
+          ip: url.ip,
+          todayVisits: url.todayVisits,
+          totalVisits: url.totalVisits,
+          logs: url.logs
+        };
+      });
+      saveDB(localData);
+    } else {
+      // MongoDB가 비어있을 경우에만 로컬 데이터를 MongoDB에 백업
+      const currentData = loadDB();
+      Object.entries(currentData).forEach(async ([shortCode, urlData]) => {
+        urlData.shortCode = shortCode;
+        await backupUrlToMongo(urlData);
+      });
+    }
+  } catch (error) {
+    console.error('데이터 동기화 중 오류:', error);
+  }
   
   // 기본 관리자 계정 생성 (초기 설정)
   await createDefaultAdminIfNeeded();
