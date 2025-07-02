@@ -329,6 +329,59 @@ document.addEventListener('DOMContentLoaded', function() {
                 const dateSet = new Set();
                 const urlDateCount = {};
                 dataWithDetails.forEach(item => {
+                    // 생성일/ IP (맨 앞 IP만)
+                    let formattedDate = '';
+                    if (item.createdAt) {
+                        const date = new Date(item.createdAt);
+                        formattedDate = `${date.getFullYear()}. ${String(date.getMonth()+1).padStart(2,'0')}. ${String(date.getDate()).padStart(2,'0')}. ` +
+                            `${String(date.getHours()).padStart(2,'0')}:${String(date.getMinutes()).padStart(2,'0')}:${String(date.getSeconds()).padStart(2,'0')}`;
+                    }
+                    let ipDisplay = item.ip || '';
+                    if (ipDisplay && typeof ipDisplay === 'string') {
+                        ipDisplay = '(' + ipDisplay.split(',')[0].trim() + ')';
+                    }
+                    const dateIp = `${formattedDate} ${ipDisplay}`;
+
+                    // URL 대시보드 시트 한 줄
+                    wsDataDashboard.push([
+                        item.shortUrl,
+                        item.longUrl,
+                        item.todayVisits,
+                        item.totalVisits,
+                        dateIp
+                    ]);
+
+                    // 상세보기 시트: 모든 로그를 개별 행으로 표시
+                    if (item.logs && item.logs.length > 0) {
+                        item.logs.forEach(log => {
+                            const logIp = log.ip;
+                            const logTime = new Date(log.time).toLocaleString('ko-KR', {
+                                year: '2-digit',
+                                month: '2-digit',
+                                day: '2-digit',
+                                hour: '2-digit',
+                                minute: '2-digit',
+                                second: '2-digit',
+                                hour12: false
+                            });
+                            wsDataDetail.push([
+                                item.shortUrl,
+                                item.longUrl,
+                                dateIp,
+                                logIp,
+                                logTime
+                            ]);
+                        });
+                    } else {
+                        wsDataDetail.push([
+                            item.shortUrl,
+                            item.longUrl,
+                            dateIp,
+                            '-',
+                            '-'
+                        ]);
+                    }
+                    // 날짜별 방문자수 집계
                     urlDateCount[item.shortUrl] = {};
                     if (item.logs && item.logs.length > 0) {
                         item.logs.forEach(log => {
@@ -339,10 +392,6 @@ document.addEventListener('DOMContentLoaded', function() {
                         });
                     }
                 });
-                // 2) 날짜 내림차순 정렬(최신이 앞으로)
-                const dateArr = Array.from(dateSet).sort((a, b) => b.localeCompare(a));
-                // 3) 시트 데이터 헤더
-                const wsDataDate = [['Short URL', 'Long URL', '총 조회수', ...dateArr]];
                 // 4) 각 URL별로 날짜별 방문자수 행 생성
                 dataWithDetails.forEach(item => {
                     const row = [item.shortUrl, item.longUrl];
