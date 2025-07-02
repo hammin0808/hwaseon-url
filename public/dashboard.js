@@ -392,6 +392,10 @@ document.addEventListener('DOMContentLoaded', function() {
                         });
                     }
                 });
+                // 날짜 배열을 반드시 wsDataDate 생성 전에 선언
+                const dateArr = Array.from(dateSet).sort((a, b) => b.localeCompare(a));
+                // 3) 시트 데이터 헤더
+                const wsDataDate = [['Short URL', 'Long URL', '총 조회수', ...dateArr]];
                 // 4) 각 URL별로 날짜별 방문자수 행 생성
                 dataWithDetails.forEach(item => {
                     const row = [item.shortUrl, item.longUrl];
@@ -471,6 +475,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 XLSX.utils.book_append_sheet(wb, wsDate, '날짜별 방문자수');
                 XLSX.writeFile(wb, 'url_list.xlsx');
             } catch (e) {
+                console.error('엑셀 다운로드 중 JS 에러:', e);
                 alert('엑셀 다운로드 중 오류가 발생했습니다.');
             } finally {
                 // 2. 로딩 모달 제거
