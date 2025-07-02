@@ -567,4 +567,13 @@
   box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
 }
 
+.logs-scroll {
+    max-height: 250px;
+    overflow-y: auto;
+    border: 1px solid #eee;
+    padding: 8px;
+    background: #fafbfc;
+    border-radius: 6px;
+}
+
 

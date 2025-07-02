@@ -221,7 +221,7 @@ function showDetails(shortCode) {
                         </div>
                         <div class="detail-item">
                             <div class="detail-label">접속 로그</div>
-                            <div class="detail-value">${logsTable}</div>
+                            <div class="detail-value"><div class="logs-scroll">${logsTable}</div></div>
                         </div>
                     </div>
                 </div>
@@ -274,10 +274,19 @@ document.addEventListener('DOMContentLoaded', function() {
     const downloadExcelBtn = document.getElementById('downloadExcelBtn');
     if (downloadExcelBtn) {
         downloadExcelBtn.addEventListener('click', async function() {
+            // 1. 로딩 모달 표시
+            const loadingModal = document.createElement('div');
+            loadingModal.className = 'modal-overlay';
+            loadingModal.innerHTML = `
+                <div class="modal-content" style="text-align:center;padding:40px 30px;min-width:260px;">
+                    <div style="font-size:20px;font-weight:bold;color:#1877f2;">엑셀 다운로드 중...</div>
+                    <div style="margin-top:18px;color:#888;font-size:15px;">잠시만 기다려주세요</div>
+                </div>
+            `;
+            document.body.appendChild(loadingModal);
             try {
                 // 현재 도메인 기반으로 설정
                 const baseUrl = window.location.origin;
-                    
                 // 1. 전체 URL 목록 가져오기
                 const urlRes = await fetch(`${baseUrl}/urls`, {
                     credentials: 'include' // 세션 쿠키 포함
@@ -286,6 +295,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 const urls = await urlRes.json();
                 if (!Array.isArray(urls) || urls.length === 0) {
                     alert('다운로드할 데이터가 없습니다.');
+                    loadingModal.remove();
                     return;
                 }
                 // 2. 각 URL의 상세 정보(IP 등) 병합
@@ -314,61 +324,37 @@ document.addEventListener('DOMContentLoaded', function() {
                 const wsDataDetail = [
                     ['Short URL', 'Long URL', '생성일 / IP', '접속 IP', '접속시간']
                 ];
+                // 3. 날짜별 방문자수 시트 데이터 준비
+                // 1) 날짜 집계용 객체
+                const dateSet = new Set();
+                const urlDateCount = {};
                 dataWithDetails.forEach(item => {
-                    // 생성일/ IP (맨 앞 IP만)
-                    let formattedDate = '';
-                    if (item.createdAt) {
-                        const date = new Date(item.createdAt);
-                        formattedDate = `${date.getFullYear()}. ${String(date.getMonth()+1).padStart(2,'0')}. ${String(date.getDate()).padStart(2,'0')}. ` +
-                            `${String(date.getHours()).padStart(2,'0')}:${String(date.getMinutes()).padStart(2,'0')}:${String(date.getSeconds()).padStart(2,'0')}`;
-                    }
-                    let ipDisplay = item.ip || '';
-                    if (ipDisplay && typeof ipDisplay === 'string') {
-                        ipDisplay = '(' + ipDisplay.split(',')[0].trim() + ')';
-                    }
-                    const dateIp = `${formattedDate} ${ipDisplay}`;
-                    
-                    // 대시보드 시트 한 줄
-                    wsDataDashboard.push([
-                        item.shortUrl,
-                        item.longUrl,
-                        item.todayVisits,
-                        item.totalVisits,
-                        dateIp
-                    ]);
-                    
-                    // 상세보기 시트: 모든 로그를 개별 행으로 표시
+                    urlDateCount[item.shortUrl] = {};
                     if (item.logs && item.logs.length > 0) {
                         item.logs.forEach(log => {
-                            const logIp = log.ip;
-                            const logTime = new Date(log.time).toLocaleString('ko-KR', {
-                                year: '2-digit',
-                                month: '2-digit',
-                                day: '2-digit',
-                                hour: '2-digit',
-                                minute: '2-digit',
-                                second: '2-digit',
-                                hour12: false
-                            });
-                            wsDataDetail.push([
-                                item.shortUrl,
-                                item.longUrl,
-                                dateIp,
-                                logIp,
-                                logTime
-                            ]);
+                            const d = new Date(log.time);
+                            const dateStr = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+                            dateSet.add(dateStr);
+                            urlDateCount[item.shortUrl][dateStr] = (urlDateCount[item.shortUrl][dateStr] || 0) + 1;
                         });
-                    } else {
-                        wsDataDetail.push([
-                            item.shortUrl,
-                            item.longUrl,
-                            dateIp,
-                            '-',
-                            '-'
-                        ]);
                     }
                 });
-                // 시트 생성 및 워크북에 추가
+                // 2) 날짜 오름차순 정렬
+                const dateArr = Array.from(dateSet).sort();
+                // 3) 시트 데이터 헤더
+                const wsDataDate = [['Short URL', 'Long URL', '총 조회수', ...dateArr]];
+                // 4) 각 URL별로 날짜별 방문자수 행 생성
+                dataWithDetails.forEach(item => {
+                    const row = [item.shortUrl, item.longUrl];
+                    // 총 조회수 계산
+                    const total = dateArr.reduce((sum, date) => sum + (urlDateCount[item.shortUrl][date] || 0), 0);
+                    row.push(total);
+                    dateArr.forEach(date => {
+                        row.push(urlDateCount[item.shortUrl][date] || 0);
+                    });
+                    wsDataDate.push(row);
+                });
+                // 기존 시트 생성 및 워크북에 추가
                 const wsDashboard = XLSX.utils.aoa_to_sheet(wsDataDashboard);
                 wsDashboard['!cols'] = [
                     { wch: 30 }, // Short URL
@@ -407,12 +393,37 @@ document.addEventListener('DOMContentLoaded', function() {
                         };
                     }
                 });
+                // 날짜별 방문자수 시트 생성
+                const wsDate = XLSX.utils.aoa_to_sheet(wsDataDate);
+                wsDate['!cols'] = [
+                    { wch: 30 }, // Short URL
+                    { wch: 50 }, // Long URL
+                    { wch: 10 }, // 총 조회수
+                    ...dateArr.map(_ => ({ wch: 12 }))
+                ];
+                // 헤더 스타일 적용 (보라색 계열 배경, 흰색 글씨, 굵은 글씨)
+                const dateHeader = ['A1', 'B1', 'C1', ...dateArr.map((_,i)=>String.fromCharCode(66+i)+'1')];
+                dateHeader.forEach(cell => {
+                    if(wsDate[cell]) {
+                        wsDate[cell].s = {
+                            fill: { fgColor: { rgb: '7D5FFF' } },
+                            font: { color: { rgb: 'FFFFFF' }, bold: true },
+                            alignment: { horizontal: 'center', vertical: 'center' }
+                        };
+                    }
+                });
+                // 워크북 생성 및 시트 추가
                 const wb = XLSX.utils.book_new();
                 XLSX.utils.book_append_sheet(wb, wsDashboard, 'URL 대시보드');
                 XLSX.utils.book_append_sheet(wb, wsDetail, '상세보기');
+                XLSX.utils.book_append_sheet(wb, wsDate, '날짜별 방문자수');
                 XLSX.writeFile(wb, 'url_list.xlsx');
             } catch (e) {
                 alert('엑셀 다운로드 중 오류가 발생했습니다.');
+            } finally {
+                // 2. 로딩 모달 제거
+                const modal = document.querySelector('.modal-overlay');
+                if (modal) modal.remove();
             }
         });
     }

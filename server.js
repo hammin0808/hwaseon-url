@@ -16,8 +16,7 @@ const {
 } = require('./backup/mongoBackup');
 const {
     backupUserToMongo,
-    getAllUsersFromMongo,
-    deleteUserFromMongo
+    getAllUsersFromMongo
 } = require('./backup/userBackup');
 require('dotenv').config(); // 환경 변수 로드
 
@@ -25,7 +24,6 @@ require('dotenv').config(); // 환경 변수 로드
 const app = express();
 const PORT = process.env.PORT || 5001;
 const DB_FILE = './db.json';
-const LAST_CRAWLED_FILE = './last_crawled.json';
 const USERS_FILE = './users.json';
 
 
@@ -47,7 +45,6 @@ app.use(express.urlencoded({ extended: true }));
 app.use(session({
     secret: 'hwaseon-secret-key',
     resave: false,
-    saveUninitialized: false,
     store: new FileStore({
         path: './sessions',
         ttl: 24 * 60 * 60,
@@ -1043,45 +1040,7 @@ cron.schedule('0 0 * * *', () => {
     timezone: 'Asia/Seoul'  // 한국 시간대 기준
 });
 
-// 13:30 기준 3시간 간격 (01:30, 04:30, 07:30, 10:30, 13:30, 16:30, 19:30, 22:30)
-cron.schedule('30 1,4,7,10,13,16,19,22 * * *', async () => {
-  console.log('⏰ 예약된 크롤링 작업 시작 (30분, 3시간 간격)');
-  try {
-    await crawlAllCategories();
-    console.log('✅ 예약된 크롤링 작업 완료 (30분, 3시간 간격)');
-  } catch (error) {
-    console.error('❌ 예약된 작업 중 오류:', error);
-  }
-}, {
-  timezone: 'Asia/Seoul'
-});
 
-function saveLastCrawled() {
-  const now = new Date().toISOString();
-  require('fs').writeFileSync(LAST_CRAWLED_FILE, JSON.stringify({ lastCrawled: now }));
-}
-
-function getLastCrawled() {
-  try {
-    const data = require('fs').readFileSync(LAST_CRAWLED_FILE, 'utf8');
-    return JSON.parse(data).lastCrawled;
-  } catch {
-    return null;
-  }
-}
-
-// 크롤링 함수 내부에서 마지막 시각 저장
-async function crawlAllCategories() {
-  // ... 기존 크롤링 코드 ...
-  // 크롤링 완료 후 마지막 시각 저장
-  saveLastCrawled();
-}
-
-// 마지막 크롤링 시각 API
-app.get('/api/last-crawled', (req, res) => {
-  const last = getLastCrawled();
-  res.json({ lastCrawled: last });
-});
 
 // 회원가입 처리 API (관리자만 사용 가능)
 app.post('/api/signup', async (req, res) => {
@@ -1231,8 +1190,7 @@ app.get('/api/backup', (req, res) => {
         const backup = {
             timestamp: new Date().toISOString(),
             urls: loadDB(),
-            users: loadUsers(),
-            lastCrawled: getLastCrawled()
+            users: loadUsers()
         };
 
         // Content-Disposition 헤더 설정으로 다운로드되게 함
@@ -1263,10 +1221,6 @@ app.post('/api/restore', express.json({limit: '50mb'}), async (req, res) => {
         // 데이터 복원
         saveDB(backupData.urls);
         saveUsers(backupData.users);
-        
-        if (backupData.lastCrawled) {
-            fs.writeFileSync(LAST_CRAWLED_FILE, JSON.stringify({ lastCrawled: backupData.lastCrawled }));
-        }
 
         res.json({ success: true, message: '데이터가 성공적으로 복원되었습니다.' });
     } catch (error) {
@@ -1281,8 +1235,7 @@ cron.schedule('0 0 * * *', async () => {
         const backup = {
             timestamp: new Date().toISOString(),
             urls: loadDB(),
-            users: loadUsers(),
-            lastCrawled: getLastCrawled()
+            users: loadUsers()
         };
 
         // 백업 디렉토리 생성
