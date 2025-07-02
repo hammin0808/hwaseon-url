@@ -576,4 +576,11 @@
     border-radius: 6px;
 }
 
+.user-list-scroll {
+  max-height: 350px;
+  overflow-y: auto;
+  background: #fff;
+  border-radius: 8px;
+}
+
 
