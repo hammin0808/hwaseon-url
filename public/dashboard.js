@@ -339,15 +339,18 @@ document.addEventListener('DOMContentLoaded', function() {
                         });
                     }
                 });
-                // 2) 날짜 오름차순 정렬
-                const dateArr = Array.from(dateSet).sort();
+                // 2) 날짜 내림차순 정렬(최신이 앞으로)
+                const dateArr = Array.from(dateSet).sort((a, b) => b.localeCompare(a));
                 // 3) 시트 데이터 헤더
                 const wsDataDate = [['Short URL', 'Long URL', '총 조회수', ...dateArr]];
                 // 4) 각 URL별로 날짜별 방문자수 행 생성
                 dataWithDetails.forEach(item => {
                     const row = [item.shortUrl, item.longUrl];
                     // 총 조회수 계산
-                    const total = dateArr.reduce((sum, date) => sum + (urlDateCount[item.shortUrl][date] || 0), 0);
+                    let total = 0;
+                    dateArr.forEach(date => {
+                        total += (urlDateCount[item.shortUrl][date] || 0);
+                    });
                     row.push(total);
                     dateArr.forEach(date => {
                         row.push(urlDateCount[item.shortUrl][date] || 0);
