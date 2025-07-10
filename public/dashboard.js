@@ -287,24 +287,25 @@ function showDetails(shortCode) {
                         }
                         // 날짜 내림차순
                         const dateArr = Object.keys(dateCount).sort((a, b) => b.localeCompare(a));
-                        // Short URL, Long URL 보장
+                        // Short URL, Long URL 보장 및 중복/줄바꿈 방지
                         let shortUrlVal = details.shortUrl;
                         if (!shortUrlVal && shortCode) {
                             shortUrlVal = window.location.origin + '/' + shortCode;
                         }
                         let longUrlVal = details.longUrl;
                         if (!longUrlVal) longUrlVal = '없음';
-                        // 첫 시트: 상세정보
+                        if (Array.isArray(longUrlVal)) longUrlVal = longUrlVal[0] || '없음';
+                        if (typeof longUrlVal === 'string') longUrlVal = longUrlVal.replace(/\n/g, '').replace(/[\r\n]+/g, '');
+                        // 첫 시트: 상세정보 (날짜별 방문수 세로)
                         const wsData = [
-                            ['Short URL', 'Long URL', '생성일', '총 방문수', ...dateArr]
+                            ['Short URL', shortUrlVal],
+                            ['Long URL', longUrlVal],
+                            ['생성일', formattedDate],
+                            ['총 방문수', total],
+                            [],
+                            ['날짜', '방문수'],
+                            ...dateArr.map(d => [d, dateCount[d] || 0])
                         ];
-                        wsData.push([
-                            shortUrlVal,
-                            longUrlVal,
-                            formattedDate,
-                            total,
-                            ...dateArr.map(d => dateCount[d] || 0)
-                        ]);
                         // 두 번째 시트: 중복 IP 하나만, 접속시간 모두 줄바꿈, 총 접속수
                         const ipMap = {};
                         if (details.logs && details.logs.length > 0) {
