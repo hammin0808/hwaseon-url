@@ -156,7 +156,7 @@ function deleteUrl(shortCode) {
 function showDetails(shortCode) {
     // 현재 도메인 기반으로 설정
     const baseUrl = window.location.origin;
-        
+    
     fetch(`${baseUrl}/urls/${shortCode}/details`, {
         credentials: 'include' // 세션 쿠키 포함
     })
@@ -166,7 +166,7 @@ function showDetails(shortCode) {
             }
             return response.json();
         })
-        .then(details => {
+        .then(async details => {
             // 기존 모달이 있다면 제거
             const existingModal = document.querySelector('.modal-overlay');
             if (existingModal) {
@@ -202,6 +202,9 @@ function showDetails(shortCode) {
                         <div class="modal-title">단축 도메인 정보: ${shortCode}</div>
                         <button class="modal-close">&times;</button>
                     </div>
+                    <div style="text-align:right;margin-bottom:10px;">
+                        <button id="modal-excel-download-btn" style="padding:7px 22px;font-size:1.05rem;background:#19c37d;color:#fff;border:none;border-radius:7px;cursor:pointer;">엑셀 다운로드</button>
+                    </div>
                     <div class="detail-grid">
                         <div class="detail-item">
                             <div class="detail-label">생성일 / IP</div>
@@ -236,6 +239,64 @@ function showDetails(shortCode) {
                 }
             });
             document.body.appendChild(modal);
+
+            // 엑셀 다운로드 버튼 이벤트 바인딩
+            setTimeout(async () => {
+                const excelBtn = document.getElementById('modal-excel-download-btn');
+                if (excelBtn) {
+                    // 아이디 정보 가져오기
+                    let username = '';
+                    try {
+                        const res = await fetch('/api/me', { credentials: 'include' });
+                        if (res.ok) {
+                            const data = await res.json();
+                            if (data && data.success && data.user && data.user.username) {
+                                username = data.user.username;
+                            }
+                        }
+                    } catch {}
+                    // 최신 방문일 구하기 (logs가 있으면 가장 최신, 없으면 생성일)
+                    let latestDate = '';
+                    if (details.logs && details.logs.length > 0) {
+                        const sorted = details.logs.map(l => l.time).sort().reverse();
+                        latestDate = sorted[0] || '';
+                    } else {
+                        latestDate = details.createdAt;
+                    }
+                    let dateStr = '';
+                    if (latestDate) {
+                        const d = new Date(latestDate);
+                        dateStr = `${d.getFullYear().toString().slice(2)}.${String(d.getMonth()+1).padStart(2,'0')}.${String(d.getDate()).padStart(2,'0')}`;
+                    }
+                    // 파일명: 아이디_단축코드_상세_날짜.xlsx
+                    let fileName = `${username || 'user'}_${shortCode}_상세`;
+                    if (dateStr) fileName += `_${dateStr}`;
+                    fileName += '.xlsx';
+
+                    excelBtn.onclick = function() {
+                        // 기존 엑셀 다운로드 로직 복사/이동 (아래는 예시, 실제 데이터 구조에 맞게 조정 필요)
+                        const wsData = [
+                            ['Short URL', 'Long URL', '생성일', 'IP', '오늘 방문', '누적 방문'],
+                            [details.shortUrl, details.longUrl, formattedDate, ipDisplay, details.todayVisits || 0, details.totalVisits || 0]
+                        ];
+                        // 접속 로그 시트
+                        const wsLogs = [
+                            ['IP', '접속시간']
+                        ];
+                        if (details.logs && details.logs.length > 0) {
+                            details.logs.forEach(log => {
+                                const t = new Date(log.time).toLocaleString('ko-KR', {year:'2-digit',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false});
+                                wsLogs.push([log.ip, t]);
+                            });
+                        }
+                        // 워크북 생성
+                        const wb = XLSX.utils.book_new();
+                        XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(wsData), '상세정보');
+                        XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(wsLogs), '접속로그');
+                        XLSX.writeFile(wb, fileName);
+                    };
+                }
+            }, 0);
         })
         .catch(error => {
             console.error('Error:', error);
@@ -468,11 +529,38 @@ document.addEventListener('DOMContentLoaded', function() {
                         };
                     }
                 });
+                // 2. 유저별 상세 시트 (IP별 방문수, 방문시각)
+                const userMap = {};
+                dataWithDetails.forEach(item => {
+                    if (item.logs && item.logs.length > 0) {
+                        item.logs.forEach(log => {
+                            const key = log.ip;
+                            if (!userMap[key]) userMap[key] = { ip: log.ip, visits: [] };
+                            userMap[key].visits.push(log.time);
+                        });
+                    }
+                });
+                const userSheet = [
+                    ['IP', '유저 방문수', '방문 시각(시:분:초)']
+                ];
+                Object.values(userMap).forEach(row => {
+                    const visitTimes = row.visits.map(t => {
+                        const d = new Date(t);
+                        return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0') + ' ' +
+                            String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0') + ':' + String(d.getSeconds()).padStart(2,'0');
+                    }).join('\n');
+                    userSheet.push([
+                        row.ip,
+                        row.visits.length,
+                        visitTimes
+                    ]);
+                });
                 // 워크북 생성 및 시트 추가
                 const wb = XLSX.utils.book_new();
                 XLSX.utils.book_append_sheet(wb, wsDashboard, 'URL 대시보드');
                 XLSX.utils.book_append_sheet(wb, wsDetail, '상세보기');
                 XLSX.utils.book_append_sheet(wb, wsDate, '날짜별 방문자수');
+                XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(userSheet), '유저별 상세'); // 유저별 상세 시트 추가
                 XLSX.writeFile(wb, 'url_list.xlsx');
             } catch (e) {
                 console.error('엑셀 다운로드 중 JS 에러:', e);
