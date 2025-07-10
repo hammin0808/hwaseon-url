@@ -293,6 +293,27 @@
       display: inline-block;
       min-width: 180px;
     }
+    .user-table-scroll {
+      max-height: 320px;
+      overflow-y: auto;
+      border-radius: 8px;
+      background: #fff;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    }
+    .user-table-scroll table {
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 0;
+    }
+    .user-table-scroll thead th {
+      position: sticky;
+      top: 0;
+      background: #f1f3f9;
+      z-index: 2;
+    }
+    .user-table-scroll tbody {
+      background: #fff;
+    }
   </style>
 </head>
 <body>
@@ -324,7 +345,7 @@
       </div>
       
       <h2>사용자 목록</h2>
-      <div id="usersTableContainer" class="user-list-scroll">
+      <div class="user-table-scroll">
         <table class="users-table">
           <thead>
             <tr>

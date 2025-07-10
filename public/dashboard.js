@@ -274,25 +274,65 @@ function showDetails(shortCode) {
                     fileName += '.xlsx';
 
                     excelBtn.onclick = function() {
-                        // 기존 엑셀 다운로드 로직 복사/이동 (아래는 예시, 실제 데이터 구조에 맞게 조정 필요)
+                        // 1. 날짜별 방문수 집계
+                        const dateCount = {};
+                        let total = 0;
+                        if (details.logs && details.logs.length > 0) {
+                            details.logs.forEach(log => {
+                                const d = new Date(log.time);
+                                const dateStr = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+                                dateCount[dateStr] = (dateCount[dateStr] || 0) + 1;
+                                total++;
+                            });
+                        }
+                        const dateArr = Object.keys(dateCount).sort();
+                        // 첫 시트: 상세정보
                         const wsData = [
-                            ['Short URL', 'Long URL', '생성일', 'IP', '오늘 방문', '누적 방문'],
-                            [details.shortUrl, details.longUrl, formattedDate, ipDisplay, details.todayVisits || 0, details.totalVisits || 0]
+                            ['Short URL', 'Long URL', '생성일', '총 방문수', ...dateArr]
                         ];
-                        // 접속 로그 시트
+                        wsData.push([
+                            details.shortUrl,
+                            details.longUrl,
+                            formattedDate,
+                            total,
+                            ...dateArr.map(d => dateCount[d] || 0)
+                        ]);
+                        // 두 번째 시트: 접속로그 (IP, 접속시간, 해당 IP 총 접속수)
+                        // IP별 총 접속수 집계
+                        const ipCount = {};
+                        if (details.logs && details.logs.length > 0) {
+                            details.logs.forEach(log => {
+                                ipCount[log.ip] = (ipCount[log.ip] || 0) + 1;
+                            });
+                        }
                         const wsLogs = [
-                            ['IP', '접속시간']
+                            ['IP', '접속시간', 'IP별 총 접속수']
                         ];
                         if (details.logs && details.logs.length > 0) {
                             details.logs.forEach(log => {
                                 const t = new Date(log.time).toLocaleString('ko-KR', {year:'2-digit',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false});
-                                wsLogs.push([log.ip, t]);
+                                wsLogs.push([log.ip, t, ipCount[log.ip] || 1]);
                             });
                         }
                         // 워크북 생성
                         const wb = XLSX.utils.book_new();
-                        XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(wsData), '상세정보');
-                        XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(wsLogs), '접속로그');
+                        const ws1 = XLSX.utils.aoa_to_sheet(wsData);
+                        const ws2 = XLSX.utils.aoa_to_sheet(wsLogs);
+                        // 시트 컬럼 너비 넓게 설정
+                        ws1['!cols'] = [
+                            { wch: 30 }, // Short URL
+                            { wch: 50 }, // Long URL
+                            { wch: 22 }, // 생성일
+                            { wch: 12 }, // 총 방문수
+                            ...dateArr.map(_ => ({ wch: 14 }))
+                        ];
+                        ws2['!cols'] = [
+                            { wch: 18 }, // IP
+                            { wch: 22 }, // 접속시간
+                            { wch: 12 }  // IP별 총 접속수
+                        ];
+                        XLSX.utils.book_append_sheet(wb, ws1, '상세정보');
+                        XLSX.utils.book_append_sheet(wb, ws2, '접속로그');
                         XLSX.writeFile(wb, fileName);
                     };
                 }
