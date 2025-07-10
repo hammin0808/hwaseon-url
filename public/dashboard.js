@@ -273,7 +273,28 @@ function showDetails(shortCode) {
                     if (dateStr) fileName += `_${dateStr}`;
                     fileName += '.xlsx';
 
-                    excelBtn.onclick = function() {
+                    excelBtn.onclick = async function() {
+                        // longUrl을 전체 목록에서 찾아서 보장
+                        let longUrlVal = details.longUrl;
+                        if (!longUrlVal) {
+                            try {
+                                const baseUrl = window.location.origin;
+                                const urlRes = await fetch(`${baseUrl}/urls`, { credentials: 'include' });
+                                if (urlRes.ok) {
+                                    const urls = await urlRes.json();
+                                    const found = Array.isArray(urls) ? urls.find(u => u.shortCode === shortCode) : null;
+                                    if (found && found.longUrl) longUrlVal = found.longUrl;
+                                }
+                            } catch {}
+                        }
+                        if (!longUrlVal) longUrlVal = '없음';
+                        if (Array.isArray(longUrlVal)) longUrlVal = longUrlVal[0] || '없음';
+                        if (typeof longUrlVal === 'string') longUrlVal = longUrlVal.replace(/\n/g, '').replace(/[\r\n]+/g, '');
+                        // Short URL 보장
+                        let shortUrlVal = details.shortUrl;
+                        if (!shortUrlVal && shortCode) {
+                            shortUrlVal = window.location.origin + '/' + shortCode;
+                        }
                         // 1. 날짜별 방문수 집계 (내림차순)
                         const dateCount = {};
                         let total = 0;
@@ -287,15 +308,6 @@ function showDetails(shortCode) {
                         }
                         // 날짜 내림차순
                         const dateArr = Object.keys(dateCount).sort((a, b) => b.localeCompare(a));
-                        // Short URL, Long URL 보장 및 중복/줄바꿈 방지
-                        let shortUrlVal = details.shortUrl;
-                        if (!shortUrlVal && shortCode) {
-                            shortUrlVal = window.location.origin + '/' + shortCode;
-                        }
-                        let longUrlVal = details.longUrl;
-                        if (!longUrlVal) longUrlVal = '없음';
-                        if (Array.isArray(longUrlVal)) longUrlVal = longUrlVal[0] || '없음';
-                        if (typeof longUrlVal === 'string') longUrlVal = longUrlVal.replace(/\n/g, '').replace(/[\r\n]+/g, '');
                         // 첫 시트: 상세정보 (날짜별 방문수 세로)
                         const wsData = [
                             ['Short URL', shortUrlVal],
