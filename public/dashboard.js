@@ -287,13 +287,20 @@ function showDetails(shortCode) {
                         }
                         // 날짜 내림차순
                         const dateArr = Object.keys(dateCount).sort((a, b) => b.localeCompare(a));
+                        // Short URL, Long URL 보장
+                        let shortUrlVal = details.shortUrl;
+                        if (!shortUrlVal && shortCode) {
+                            shortUrlVal = window.location.origin + '/' + shortCode;
+                        }
+                        let longUrlVal = details.longUrl;
+                        if (!longUrlVal) longUrlVal = '없음';
                         // 첫 시트: 상세정보
                         const wsData = [
                             ['Short URL', 'Long URL', '생성일', '총 방문수', ...dateArr]
                         ];
                         wsData.push([
-                            details.shortUrl || '',
-                            details.longUrl || '',
+                            shortUrlVal,
+                            longUrlVal,
                             formattedDate,
                             total,
                             ...dateArr.map(d => dateCount[d] || 0)
