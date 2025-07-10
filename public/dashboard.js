@@ -274,7 +274,7 @@ function showDetails(shortCode) {
                     fileName += '.xlsx';
 
                     excelBtn.onclick = function() {
-                        // 1. 날짜별 방문수 집계
+                        // 1. 날짜별 방문수 집계 (내림차순)
                         const dateCount = {};
                         let total = 0;
                         if (details.logs && details.logs.length > 0) {
@@ -285,35 +285,40 @@ function showDetails(shortCode) {
                                 total++;
                             });
                         }
-                        const dateArr = Object.keys(dateCount).sort();
+                        // 날짜 내림차순
+                        const dateArr = Object.keys(dateCount).sort((a, b) => b.localeCompare(a));
                         // 첫 시트: 상세정보
                         const wsData = [
                             ['Short URL', 'Long URL', '생성일', '총 방문수', ...dateArr]
                         ];
                         wsData.push([
-                            details.shortUrl,
-                            details.longUrl,
+                            details.shortUrl || '',
+                            details.longUrl || '',
                             formattedDate,
                             total,
                             ...dateArr.map(d => dateCount[d] || 0)
                         ]);
-                        // 두 번째 시트: 접속로그 (IP, 접속시간, 해당 IP 총 접속수)
-                        // IP별 총 접속수 집계
-                        const ipCount = {};
+                        // 두 번째 시트: 중복 IP 하나만, 접속시간 모두 줄바꿈, 총 접속수
+                        const ipMap = {};
                         if (details.logs && details.logs.length > 0) {
                             details.logs.forEach(log => {
-                                ipCount[log.ip] = (ipCount[log.ip] || 0) + 1;
+                                if (!ipMap[log.ip]) ipMap[log.ip] = [];
+                                ipMap[log.ip].push(log.time);
                             });
                         }
                         const wsLogs = [
                             ['IP', '접속시간', 'IP별 총 접속수']
                         ];
-                        if (details.logs && details.logs.length > 0) {
-                            details.logs.forEach(log => {
-                                const t = new Date(log.time).toLocaleString('ko-KR', {year:'2-digit',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false});
-                                wsLogs.push([log.ip, t, ipCount[log.ip] || 1]);
-                            });
-                        }
+                        Object.entries(ipMap).forEach(([ip, times]) => {
+                            // 접속시간 내림차순
+                            const sortedTimes = times.sort((a, b) => b.localeCompare(a));
+                            const timeStr = sortedTimes.map(t => {
+                                const d = new Date(t);
+                                return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')} ` +
+                                    `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}:${String(d.getSeconds()).padStart(2,'0')}`;
+                            }).join('\n');
+                            wsLogs.push([ip, timeStr, times.length]);
+                        });
                         // 워크북 생성
                         const wb = XLSX.utils.book_new();
                         const ws1 = XLSX.utils.aoa_to_sheet(wsData);
@@ -328,7 +333,7 @@ function showDetails(shortCode) {
                         ];
                         ws2['!cols'] = [
                             { wch: 18 }, // IP
-                            { wch: 22 }, // 접속시간
+                            { wch: 44 }, // 접속시간
                             { wch: 12 }  // IP별 총 접속수
                         ];
                         XLSX.utils.book_append_sheet(wb, ws1, '상세정보');
