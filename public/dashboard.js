@@ -308,16 +308,14 @@ function showDetails(shortCode) {
                         }
                         // 날짜 내림차순
                         const dateArr = Object.keys(dateCount).sort((a, b) => b.localeCompare(a));
-                        // 첫 시트: 상세정보 (날짜별 방문수 세로)
+                        // 첫 시트: 상세정보 (기본정보 가로, 날짜/방문수 세로가 총 방문수 오른쪽에)
                         const wsData = [
-                            ['Short URL', shortUrlVal],
-                            ['Long URL', longUrlVal],
-                            ['생성일', formattedDate],
-                            ['총 방문수', total],
-                            [],
-                            ['날짜', '방문수'],
-                            ...dateArr.map(d => [d, dateCount[d] || 0])
+                            ['Short URL', 'Long URL', '생성일', '총 방문수', '날짜', '방문수'],
+                            [shortUrlVal, longUrlVal, formattedDate, total, dateArr[0] || '', dateCount[dateArr[0]] || ''],
                         ];
+                        for (let i = 1; i < dateArr.length; i++) {
+                            wsData.push(['', '', '', '', dateArr[i], dateCount[dateArr[i]] || 0]);
+                        }
                         // 두 번째 시트: 중복 IP 하나만, 접속시간 모두 줄바꿈, 총 접속수
                         const ipMap = {};
                         if (details.logs && details.logs.length > 0) {
